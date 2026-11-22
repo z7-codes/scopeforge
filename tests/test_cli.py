@@ -121,6 +121,23 @@ class CliTests(unittest.TestCase):
             self.assertEqual(code, 0, err)
             self.assertTrue(out.isascii(), out)
 
+    def test_exposure_command(self):
+        self.run_cli("scope", "add", "demo", "--domain", "example.com")
+        output_path = Path(self.tmp.name) / "exposure.md"
+        code, out, err = self.run_cli(
+            "exposure", "example.com", "--scope", "demo", "--source", "policy", "--output", str(output_path)
+        )
+        self.assertEqual(code, 0, err)
+        self.assertIn("written", out)
+        content = output_path.read_text(encoding="utf-8")
+        self.assertIn("site:example.com", content)
+        self.assertIn("Run these searches manually", content)
+
+    def test_probe_requires_ownership(self):
+        code, out, err = self.run_cli("probe", "http://127.0.0.1/page?q=x")
+        self.assertEqual(code, 2)
+        self.assertIn("--i-own-this", err)
+
     def test_interactive_command(self):
         out = io.StringIO()
         with patch("builtins.input", return_value="0"), contextlib.redirect_stdout(out):

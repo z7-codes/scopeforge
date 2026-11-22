@@ -9,10 +9,12 @@ from typing import Any, Sequence
 from . import __version__
 from .analyzer import analyze_records, render_analysis
 from .dorks import CATEGORIES, build_plan, render_plan
+from .exposure import build_worksheet
 from .lab import render_lab
 from .ledger import add_lead, list_leads, render_leads
+from .probe import probe_urls, render_probe
 from .report import render_report
-from .scope import add_scope, get_scope, list_scopes
+from .scope import add_scope, check_scope, get_scope, list_scopes
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -61,6 +63,20 @@ def build_parser() -> argparse.ArgumentParser:
     report.add_argument("analysis", help="JSON file from analyze --format json")
     report.add_argument("--scope", required=True)
     report.add_argument("--output")
+
+    exposure = sub.add_parser("exposure", help="generate a manual public exposure worksheet")
+    exposure.add_argument("domain")
+    exposure.add_argument("--scope", required=True)
+    exposure.add_argument("--source", default="")
+    exposure.add_argument("--output")
+
+    probe = sub.add_parser("probe", help="send benign markers to owned or lab URLs")
+    probe.add_argument("urls", nargs="+")
+    probe.add_argument("--scope")
+    probe.add_argument("--marker", default="Z7CHECK-SF")
+    probe.add_argument("--i-own-this", action="store_true")
+    probe.add_argument("--format", choices=("text", "json", "md"), default="text")
+    probe.add_argument("--output")
     return parser
 
 
@@ -144,6 +160,31 @@ def cmd_report(args: argparse.Namespace) -> str:
     return content
 
 
+def write_text_output(content: str, output: str | None) -> str:
+    if not output:
+        return content
+    path = Path(output)
+    if path.parent != Path("."):
+        path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(content, encoding="utf-8")
+    return "written: " + str(path)
+
+
+def cmd_exposure(args: argparse.Namespace) -> str:
+    scope = get_scope(args.scope)
+    decision = check_scope(scope, args.domain)
+    if not decision.allowed:
+        raise ValueError("domain blocked by scope: " + decision.reason)
+    content = build_worksheet(scope.name, args.domain, args.source)
+    return write_text_output(content, args.output)
+
+
+def cmd_probe(args: argparse.Namespace) -> str:
+    results = probe_urls(args.urls, args.marker, args.scope, args.i_own_this)
+    content = render_probe(results, args.format)
+    return write_text_output(content, args.output)
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     raw_args = list(argv) if argv is not None else list(sys.argv[1:])
     if not raw_args:
@@ -168,9 +209,13 @@ def main(argv: Sequence[str] | None = None) -> int:
             output = render_lab(args.scenario)
         elif args.command == "report":
             output = cmd_report(args)
+        elif args.command == "exposure":
+            output = cmd_exposure(args)
+        elif args.command == "probe":
+            output = cmd_probe(args)
         else:
             raise ValueError("unknown command: " + str(args.command))
-    except (ValueError, FileNotFoundError, json.JSONDecodeError) as exc:
+    except (ValueError, OSError, json.JSONDecodeError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2
     print(output)

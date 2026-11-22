@@ -15,6 +15,8 @@ It does **not** scan arbitrary domains, fire payloads, extract data, or declare 
 - Redacts URLs, parameters, emails, tokens, and long hex values in reports.
 - Renders a Markdown evidence report draft.
 - Provides guided lab scenarios for localhost, DVWA, Juice Shop, and CTF targets.
+- Generates a manual public-exposure worksheet from scoped dork queries.
+- Probes explicitly owned, lab, or in-scope URLs with benign markers only.
 
 ## Devil Mode
 
@@ -55,12 +57,42 @@ Menu sections:
 [04] Evidence analyzer
 [05] Lab mode
 [06] Report generator
-[07] Safety rules
-[08] Toggle Devil Mode
-[00] Exit
+  [07] Safety rules
+  [08] Toggle Devil Mode
+  [09] Public exposure worksheet
+  [10] Benign URL probe
+  [00] Exit
+
 ```
 
 Active scope and Devil Mode are saved locally. Devil Mode sorts analysis results by signal score and keeps the same no-exploitation safety boundary.
+
+## Public exposure worksheet
+
+Generate scoped searches for manual browser checks. ScopeForge does not query search engines or targets.
+
+```bash
+scopeforge exposure example.com --scope main --source policy --output exposure.md
+```
+
+The worksheet includes every dork category, scope source, empty evidence columns, and decision rules. A public result is a lead, not a vulnerability declaration.
+
+## Benign URL probe
+
+For URLs you own, labs, or CTF targets only. This sends a benign marker such as `Z7CHECK-SF`, never an exploit payload.
+
+```bash
+scopeforge probe "http://localhost:8080/search?q=test" --i-own-this
+scopeforge probe "https://app.example.com/search?q=test" --scope main --i-own-this --format md --output probe.md
+```
+
+Safety gates:
+
+- `--i-own-this` is mandatory.
+- Non-lab hosts require a saved scope.
+- Redirects are blocked.
+- Requests are rate limited.
+- Output is redacted and always says `needs-validation`; it never declares a vulnerability.
 
 ## Quick start
 

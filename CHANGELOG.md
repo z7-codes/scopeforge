@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.3.0 — 2026-11-22
+
+- Added `exposure` command that generates a manual public-exposure worksheet from scoped dork queries.
+- Added `probe` command that sends only benign markers to explicitly owned, lab, or in-scope URLs.
+- Added ownership confirmation, scope checks, no-redirect requests, rate limiting, and redacted output to probe mode.
+- Added interactive menu options `[09] Public exposure worksheet` and `[10] Benign URL probe`.
+- Added tests for worksheet generation, marker URL building, local reflection probing, and safety gates.
+
 ## 0.2.0 — 2026-11-22
 
 - Added an airgeddon-style interactive console launched with `scopeforge` or `scopeforge interactive`.

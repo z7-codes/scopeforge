@@ -9,8 +9,10 @@ from typing import Any, Callable
 from . import __version__
 from .analyzer import analyze_records, render_analysis
 from .dorks import CATEGORIES, build_plan, render_plan
+from .exposure import build_worksheet
 from .lab import LABS, render_lab
 from .ledger import add_lead, list_leads, render_leads
+from .probe import probe_urls, render_probe
 from .report import render_report
 from .scope import add_scope, check_scope, get_scope, list_scopes
 from .storage import read_json, write_json
@@ -100,6 +102,8 @@ def header(state: State) -> str:
         "  [06] Report generator",
         "  [07] Safety rules",
         "  [08] Toggle Devil Mode",
+        "  [09] Public exposure worksheet",
+        "  [10] Benign URL probe",
         "  [00] Exit",
         "",
         "=" * 68,
@@ -296,6 +300,50 @@ def menu_safety(state: State) -> None:
     pause()
 
 
+def menu_exposure(state: State) -> None:
+    print("")
+    print("PUBLIC EXPOSURE WORKSHEET")
+    print("-" * 25)
+    print("Generates scoped searches for manual browser checks. No automatic querying.")
+    scope_name = ask("Scope name", state.scope)
+    domain = ask("Domain")
+    source = ask("Scope source", "manual-entry")
+    output = ask("Output file", "exposure.md")
+    try:
+        scope = get_scope(scope_name)
+        decision = check_scope(scope, domain)
+        if not decision.allowed:
+            raise ValueError("domain blocked by scope: " + decision.reason)
+        write_output(build_worksheet(scope.name, domain, source), output)
+    except (ValueError, OSError) as exc:
+        print("error: " + str(exc))
+    pause()
+
+
+def menu_probe(state: State) -> None:
+    print("")
+    print("BENIGN URL PROBE")
+    print("-" * 16)
+    print("Only owned assets, labs, or CTF targets. No exploit payloads are used.")
+    urls_text = ask("URLs, comma separated")
+    scope_name = ask("Scope name for non-lab hosts", state.scope)
+    confirm = ask("Type OWN to confirm ownership or authorization")
+    marker = ask("Benign marker", "Z7CHECK-SF")
+    fmt = ask("Format (text, json, md)", "text")
+    output = ask("Output file, blank to print", "")
+    if confirm.strip().upper() != "OWN":
+        print("blocked: ownership confirmation required")
+        pause()
+        return
+    urls = [item.strip() for item in urls_text.split(",") if item.strip()]
+    try:
+        results = probe_urls(urls, marker, scope_name, True)
+        write_output(render_probe(results, fmt), output)
+    except (ValueError, OSError) as exc:
+        print("error: " + str(exc))
+    pause()
+
+
 def run_interactive() -> int:
     state = load_state()
     handlers: dict[int, Callable[[State], None]] = {
@@ -306,6 +354,8 @@ def run_interactive() -> int:
         5: menu_lab,
         6: menu_report,
         7: menu_safety,
+        9: menu_exposure,
+        10: menu_probe,
     }
     while True:
         clear_screen()
