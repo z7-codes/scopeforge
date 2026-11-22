@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "classes": {
+    "marker": {
+      "category": "reflection",
+      "canary": "z7sf7q",
+      "steps": ["z7sf7q"],
+      "pairs": []
+    }
+  }
+}

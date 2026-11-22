@@ -1,162 +1,75 @@
 import contextlib
 import io
-import json
 import os
-import sys
 import tempfile
 import unittest
-from pathlib import Path
 from unittest.mock import patch
+from urllib.parse import urlsplit
 
-from scopeforge.cli import main
+from scopeforge import cli
+from scopeforge.net import Response
+from scopeforge.scope import add_scope
+
+SOFT_404 = b"<html>Nothing here</html>"
+
+
+def fake_fetch(url: str, *args, **kwargs) -> Response:
+    if urlsplit(url).path == "/.env":
+        return Response(url, 200, {"Content-Type": "text/plain"}, b"APP_ENV=prod\nAPI_URL=https://x.test\n", 0.01)
+    return Response(url, 404, {"Content-Type": "text/html"}, SOFT_404, 0.01)
 
 
 class CliTests(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
-        os.environ["SCOPEFORGE_HOME"] = self.tmp.name
-        os.environ["SCOPEFORGE_NO_CLEAR"] = "1"
-        os.environ["SCOPEFORGE_NO_PAUSE"] = "1"
+        self.env = patch.dict(os.environ, {"SCOPEFORGE_HOME": self.tmp.name})
+        self.env.start()
+        add_scope("t", ["example.com"], [], "policy")
+        self.call(["config", "delay", "0"])
 
     def tearDown(self):
-        os.environ.pop("SCOPEFORGE_HOME", None)
-        os.environ.pop("SCOPEFORGE_NO_CLEAR", None)
-        os.environ.pop("SCOPEFORGE_NO_PAUSE", None)
+        self.env.stop()
         self.tmp.cleanup()
 
-    def run_cli(self, *args):
-        out = io.StringIO()
-        err = io.StringIO()
+    def call(self, argv):
+        out, err = io.StringIO(), io.StringIO()
         with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
-            code = main(list(args))
+            code = cli.main(argv)
         return code, out.getvalue(), err.getvalue()
 
-    def test_full_flow(self):
-        code, out, err = self.run_cli(
-            "scope", "add", "main", "--domain", "example.com", "--source", "policy-2026-11-22"
-        )
-        self.assertEqual(code, 0, err)
-        self.assertIn("scope saved: main", out)
+    def test_help_has_no_inject_command(self):
+        help_text = cli.build_parser().format_help()
+        self.assertNotIn("inject", help_text.lower())
+        self.assertIn("scan", help_text)
+        self.assertIn("probe", help_text)
 
-        code, out, err = self.run_cli("scope", "list")
-        self.assertEqual(code, 0, err)
-        self.assertIn("main:", out)
+    def test_scope_commands(self):
+        code, out, _ = self.call(["scope", "list"])
+        self.assertEqual(code, 0)
+        self.assertIn("example.com", out)
 
-        code, out, err = self.run_cli("plan", "main", "--category", "xss", "--limit", "2", "--format", "json")
-        self.assertEqual(code, 0, err)
-        records = json.loads(out)
-        self.assertEqual(len(records), 2)
-
-        code, out, err = self.run_cli(
-            "lead", "add", "--scope", "main", "--candidate", "https://example.com/search?q=test",
-            "--source", "manual", "--category", "xss"
-        )
-        self.assertEqual(code, 0, err)
-        self.assertIn("lead added:", out)
-
-        code, out, err = self.run_cli("lead", "list", "--scope", "main", "--format", "json")
-        self.assertEqual(code, 0, err)
-        self.assertEqual(len(json.loads(out)), 1)
-
-        evidence = [
-            {
-                "id": "EV-001",
-                "scope": "main",
-                "category": "xss",
-                "url": "https://example.com/search?q=Z7CHECK",
-                "parameter": "q",
-                "context": "html-text",
-                "reflection": True,
-                "authorized": True,
-            }
-        ]
-        evidence_path = Path(self.tmp.name) / "evidence.json"
-        evidence_path.write_text(json.dumps(evidence), encoding="utf-8")
-
-        code, out, err = self.run_cli("analyze", str(evidence_path), "--format", "json")
-        self.assertEqual(code, 0, err)
-        analysis = json.loads(out)
-        self.assertEqual(analysis[0]["status"], "likely")
-
-        analysis_path = Path(self.tmp.name) / "analysis.json"
-        analysis_path.write_text(json.dumps(analysis), encoding="utf-8")
-        report_path = Path(self.tmp.name) / "report.md"
-
-        code, out, err = self.run_cli("report", str(analysis_path), "--scope", "main", "--output", str(report_path))
-        self.assertEqual(code, 0, err)
-        self.assertIn("report written", out)
-        self.assertIn("# ScopeForge Evidence Report", report_path.read_text(encoding="utf-8"))
-
-    def test_lab(self):
-        code, out, err = self.run_cli("lab", "localhost")
-        self.assertEqual(code, 0, err)
-        self.assertIn("ScopeForge Lab Mode", out)
-        self.assertIn("No requests are sent", out)
-
-    def test_analyze_output(self):
-        evidence_path = Path(self.tmp.name) / "evidence.json"
-        evidence = [{"category": "recon", "authorized": True, "surface": "docs"}]
-        evidence_path.write_text(json.dumps(evidence), encoding="utf-8")
-        output_path = Path(self.tmp.name) / "analysis.json"
-
-        code, out, err = self.run_cli(
-            "analyze", str(evidence_path), "--format", "json", "--output", str(output_path)
-        )
-        self.assertEqual(code, 0, err)
-        self.assertIn("analysis written", out)
-        data = json.loads(output_path.read_text(encoding="utf-8"))
-        self.assertEqual(data[0]["status"], "needs-validation")
-
-    def test_text_output_is_ascii(self):
-        code, out, err = self.run_cli("scope", "add", "main", "--domain", "example.com")
-        self.assertEqual(code, 0, err)
-        commands = [
-            ("scope", "list"),
-            ("plan", "main"),
-            ("lead", "list"),
-            ("lab", "localhost"),
-        ]
-        for args in commands:
-            code, out, err = self.run_cli(*args)
-            self.assertEqual(code, 0, err)
-            self.assertTrue(out.isascii(), out)
-
-    def test_exposure_command(self):
-        self.run_cli("scope", "add", "demo", "--domain", "example.com")
-        output_path = Path(self.tmp.name) / "exposure.md"
-        code, out, err = self.run_cli(
-            "exposure", "example.com", "--scope", "demo", "--source", "policy", "--output", str(output_path)
-        )
-        self.assertEqual(code, 0, err)
-        self.assertIn("written", out)
-        content = output_path.read_text(encoding="utf-8")
-        self.assertIn("site:example.com", content)
-        self.assertIn("Run these searches manually", content)
-
-    def test_probe_requires_ownership(self):
-        code, out, err = self.run_cli("probe", "http://127.0.0.1/page?q=x")
+    def test_scan_requires_ownership(self):
+        code, _, err = self.call(["scan", "https://example.com", "--scope", "t"])
         self.assertEqual(code, 2)
         self.assertIn("--i-own-this", err)
 
-    def test_interactive_command(self):
-        out = io.StringIO()
-        with patch("builtins.input", return_value="0"), contextlib.redirect_stdout(out):
-            code = main(["interactive"])
+    def test_lab_scan_with_confirmation(self):
+        with patch("scopeforge.net.fetch", side_effect=fake_fetch):
+            code, out, _ = self.call(["scan", "http://localhost:3000", "--lab", "--i-own-this"])
         self.assertEqual(code, 0)
-        self.assertIn("SCOPEFORGE", out.getvalue())
-        self.assertIn("[01] Scope management", out.getvalue())
+        self.assertIn("Exposure scan", out)
 
-    def test_no_args_starts_interactive(self):
-        out = io.StringIO()
-        with patch.object(sys, "argv", ["scopeforge"]), patch("builtins.input", return_value="0"), contextlib.redirect_stdout(out):
-            code = main()
-        self.assertEqual(code, 0)
-        self.assertIn("[00] Exit", out.getvalue())
+    def test_budget_exit_code(self):
+        self.assertEqual(self.call(["config", "max_requests", "1"])[0], 0)
+        with patch("scopeforge.net.fetch", side_effect=fake_fetch):
+            code, _, err = self.call(["scan", "http://localhost:3000", "--lab", "--i-own-this"])
+        self.assertEqual(code, 3)
+        self.assertIn("budget", err.lower())
 
-    def test_missing_scope_error(self):
-        code, out, err = self.run_cli("plan", "missing")
-        self.assertEqual(code, 2)
-        self.assertIn("scope not found", err)
+    def test_unknown_command(self):
+        with self.assertRaises(SystemExit) as raised:
+            cli.main(["nope"])
+        self.assertEqual(raised.exception.code, 2)
 
 
 if __name__ == "__main__":

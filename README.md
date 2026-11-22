@@ -2,27 +2,32 @@
 
 [![CI](https://github.com/z7-codes/scopeforge/actions/workflows/ci.yml/badge.svg)](https://github.com/z7-codes/scopeforge/actions/workflows/ci.yml)
 
-ScopeForge is a cross-platform command-line tool for scope-safe recon planning, evidence triage, and report drafting. It is the companion tool to [Advanced Google Dorks](https://github.com/z7-codes/advanced-google-dorks).
+ScopeForge is a cross-platform command-line tool for scope-safe recon, manual proof collection, and report drafting. It is the companion tool to [Advanced Google Dorks](https://github.com/z7-codes/advanced-google-dorks).
 
-It does **not** scan arbitrary domains, fire payloads, extract data, or declare vulnerabilities automatically.
+It does **not** scan arbitrary domains, fire attack payloads, exploit findings, extract data, bypass WAFs, or declare vulnerabilities automatically. Every engine stops at a signal plus a copy-pasteable request; the operator confirms impact.
+
+## v0.4 safety model
+
+- One network choke point: `scopeforge.net.Session.get()` runs `guard()` -> `budget.spend()` -> `fetch()`.
+- Written scope plus exclusions are mandatory for non-lab targets. Lab hosts need `--lab`.
+- `--i-own-this` is mandatory for `scan` and `probe`.
+- No redirects, 8-second timeout, 64 KB body cap, fixed `ScopeForge/0.4` user agent.
+- Global and per-host budgets, typed exit codes, resume state, and redacted evidence.
+- `search` is passive only. It never feeds `scan` or `probe` automatically.
+- The payload catalog is marker-only. There is no SQLi/XSS/traversal/redirect/SSTI/CRLF ladder and no `inject` command.
 
 ## What it does
 
 - Validates written scopes with wildcard and exclusion support.
-- Generates scoped discovery queries from a category template set.
+- Generates scoped dork queries from JSON-backed templates.
+- Runs passive dork searches through DDG, Google CSE, Brave, or a local URL file.
 - Stores leads in a local ledger.
-- Analyzes evidence that you record from authorized work, labs, or CTFs.
-- Redacts URLs, parameters, emails, tokens, and long hex values in reports.
+- Runs structural exposure checks with soft-404 suppression and validator-based proof.
+- Sends benign markers to parameters on owned/lab/in-scope URLs and diffs normalized responses.
+- Stores findings locally, supports confirm/false-positive/skip, and writes evidence JSON.
+- Scores evidence that you record from authorized work, labs, or CTFs.
 - Renders a Markdown evidence report draft.
 - Provides guided lab scenarios for localhost, DVWA, Juice Shop, and CTF targets.
-- Generates a manual public-exposure worksheet from scoped dork queries.
-- Probes explicitly owned, lab, or in-scope URLs with benign markers only.
-
-## Devil Mode
-
-Devil Mode is a scoring posture, not an attack mode.
-
-It means deeper signal correlation, stricter dedupe prompts, lower tolerance for weak evidence, and sharper report structure. It never enables credential attacks, exploit chains, mass requests, WAF bypass, denial of service, or testing third-party websites.
 
 ## Install
 
@@ -37,133 +42,145 @@ Local development:
 python -m pip install -e .
 ```
 
-Works on Windows, Linux, Arch, and macOS with Python 3.10 or newer. No API keys, no backend, no cloud dependency.
+Works on Windows, Linux, Arch, and macOS with Python 3.10 or newer. No backend, no cloud dependency. Optional search providers use `SCOPEFORGE_CSE_KEY`, `SCOPEFORGE_CSE_CX`, or `SCOPEFORGE_BRAVE_KEY`.
 
 ## Interactive console
-
-Run the tool with no arguments for an airgeddon-style numbered menu:
 
 ```bash
 scopeforge
 scopeforge interactive
 ```
 
-Menu sections:
+Current menu:
 
 ```text
-[01] Scope management
-[02] Dork plan generator
-[03] Lead ledger
-[04] Evidence analyzer
-[05] Lab mode
-[06] Report generator
-  [07] Safety rules
-  [08] Toggle Devil Mode
-  [09] Public exposure worksheet
-  [10] Benign URL probe
-  [00] Exit
-
+[1] Scope management
+[2] Dork plan
+[3] Passive search
+[4] Exposure worksheet
+[5] Exposure scan
+[6] Benign param probe
+[7] Findings
+[8] Verify finding
+[9] Config
+[0] Exit
 ```
-
-Active scope and Devil Mode are saved locally. Devil Mode sorts analysis results by signal score and keeps the same no-exploitation safety boundary.
-
-## Public exposure worksheet
-
-Generate scoped searches for manual browser checks. ScopeForge does not query search engines or targets.
-
-```bash
-scopeforge exposure example.com --scope main --source policy --output exposure.md
-```
-
-The worksheet includes every dork category, scope source, empty evidence columns, and decision rules. A public result is a lead, not a vulnerability declaration.
-
-## Benign URL probe
-
-For URLs you own, labs, or CTF targets only. This sends a benign marker such as `Z7CHECK-SF`, never an exploit payload.
-
-```bash
-scopeforge probe "http://localhost:8080/search?q=test" --i-own-this
-scopeforge probe "https://app.example.com/search?q=test" --scope main --i-own-this --format md --output probe.md
-```
-
-Safety gates:
-
-- `--i-own-this` is mandatory.
-- Non-lab hosts require a saved scope.
-- Redirects are blocked.
-- Requests are rate limited.
-- Output is redacted and always says `needs-validation`; it never declares a vulnerability.
 
 ## Quick start
 
 ```bash
 scopeforge scope add main --domain example.com --domain "*.example.org" --exclude staging.example.org --source "program-policy-2026-11-22"
-
-scopeforge plan main --category recon --limit 20
-scopeforge plan main --category xss --format md > xss-plan.md
-
-scopeforge lead add --scope main --candidate https://example.com/search?q=test --source manual-browsing --category xss
-
+scopeforge plan main --category recon --limit 20 --format md > recon-plan.md
+scopeforge search main --category exposure --provider ddg --limit 10 --output leads.txt
+scopeforge exposure example.com --scope main --source "program-policy-2026-11-22" --output exposure.md
+scopeforge scan https://example.com --scope main --tier high --i-own-this
+scopeforge probe "https://example.com/search?q=test" --scope main --i-own-this
+scopeforge findings list --scope main
+scopeforge verify <finding-id>
 scopeforge lab localhost
 ```
 
-## Evidence analysis
-
-Create `evidence.json`:
-
-```json
-[
-  {
-    "id": "EV-001",
-    "scope": "main",
-    "category": "xss",
-    "url": "https://example.com/search?q=test",
-    "parameter": "q",
-    "context": "html-attribute",
-    "reflection": true,
-    "authorized": true,
-    "excerpt": "value=Z7CHECK123 from authorized lab capture"
-  },
-  {
-    "id": "EV-002",
-    "scope": "main",
-    "category": "sqli",
-    "url": "https://example.com/product?id=1",
-    "parameter": "id",
-    "error_family": "mysql_error",
-    "authorized": true,
-    "excerpt": "database-family error text omitted"
-  }
-]
-```
-
-Run:
+For local lab work:
 
 ```bash
-scopeforge analyze evidence.json
-scopeforge analyze evidence.json --format json --output analysis.json
+scopeforge scan http://localhost:3000 --lab --i-own-this
+scopeforge probe "http://localhost:3000/search?q=test" --lab --i-own-this
+```
+
+## Exposure scan
+
+`scan` checks a fixed set of JSON-backed paths. A path is reported only when a structural validator matches, or when you explicitly ask for `--include-maybe`. Soft-404 bodies are baselined first. `.git/HEAD` can chain to other `.git` checks only after a non-absent result.
+
+```bash
+scopeforge scan https://example.com --scope main --tier high --i-own-this
+scopeforge scan https://example.com --scope main --tier all --include-maybe --no-resume --i-own-this
+```
+
+## Benign probe
+
+`probe` replaces one parameter at a time with a benign marker such as `z7sf7q`. It normalizes CSRF tokens, UUIDs, hex IDs, timestamps, asset versions, and base64 blobs before diffing. Reflection is a signal, not a vulnerability declaration.
+
+```bash
+scopeforge probe "http://localhost:8080/search?q=test" --lab --i-own-this
+scopeforge probe "https://app.example.com/search?q=test" --scope main --marker z7sf7q --max-params 5 --i-own-this
+```
+
+## Findings and evidence
+
+```bash
+scopeforge findings list --scope main --min-confidence medium
+scopeforge findings list --format json > findings.json
+scopeforge verify <finding-id> --status confirmed --note "manually reviewed in scope"
+scopeforge analyze ~/.scopeforge/evidence --format json --output analysis.json
 scopeforge report analysis.json --scope main --output report.md
 ```
 
-Status values:
+`verify` writes a redacted evidence record under `~/.scopeforge/evidence/<scope>.json`. Only operator-confirmed findings become evidence records.
+
+Status values from the analyzer:
 
 - `blocked`: authorization was not recorded.
 - `needs-validation`: evidence is incomplete.
 - `likely`: a meaningful signal was recorded.
-- `evidence-confirmed`: the operator supplied manual confirmation and an evidence summary.
+- `evidence-confirmed`: manual confirmation and an evidence summary exist.
 
-ScopeForge never replaces manual validation or program triage.
+## Search providers
+
+```bash
+scopeforge search main --category exposure --provider ddg
+scopeforge search main --category xss --provider google_cse
+scopeforge search main --category recon --provider brave
+scopeforge search main --provider file --input urls.txt
+```
+
+`file` skips blank lines and `#` comments. `auto` tries Google CSE, Brave, then DDG. Results are exported for manual review only.
+
+## Config and state
+
+```bash
+scopeforge config
+scopeforge config delay 0.4
+scopeforge config max_requests 300
+scopeforge evidence-dir
+scopeforge state clear main
+```
+
+Defaults:
+
+```json
+{
+  "delay": 0.4,
+  "max_requests": 300,
+  "max_per_host": 120,
+  "max_urls": 25,
+  "max_params": 5,
+  "max_queries": 40,
+  "timeout": 8.0,
+  "max_bytes": 65536,
+  "provider": "auto"
+}
+```
+
+Exit codes:
+
+```text
+0  success
+2  input/scope/usage error
+3  budget exhausted
+4  nothing found
+130 interrupted
+```
 
 ## Data location
 
-Local data is stored under `~/.scopeforge` by default.
-
-Set `SCOPEFORGE_HOME` to use another directory.
+Local data is stored under `~/.scopeforge` by default. Set `SCOPEFORGE_HOME` to use another directory. Bundled catalogs live in `scopeforge/data/`: `paths.json`, `dorks.json`, and marker-only `payloads.json`.
 
 ## Tests
 
 ```bash
 python -m unittest discover -s tests -v
+python -m compileall -q scopeforge tests
+git diff --check
 ```
 
 ## Roadmap
@@ -171,7 +188,6 @@ python -m unittest discover -s tests -v
 - Local browser UI with FastAPI and static HTML.
 - PyInstaller binaries for Windows and Linux.
 - Arch `PKGBUILD` and AUR packaging.
-- GitHub Actions test matrix — active.
 - Import adapters for Burp, ZAP, and Nuclei evidence exports.
 - Dedupe and Known Issues note importer.
 
