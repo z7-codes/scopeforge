@@ -112,10 +112,12 @@ scopeforge findings list --scope main --min-confidence medium
 scopeforge findings list --format json > findings.json
 scopeforge verify <finding-id> --status confirmed --note "manually reviewed in scope"
 scopeforge analyze ~/.scopeforge/evidence --format json --output analysis.json
-scopeforge report analysis.json --scope main --output report.md
+scopeforge report analysis.json --scope main --scope-source "program-policy-2026-11-22" --output report.md
 ```
 
 `verify` writes a redacted evidence record under `~/.scopeforge/evidence/<scope>.json`. Only operator-confirmed findings become evidence records.
+
+The report is deterministic and draft-only. Confirmed records get a manual reproduction outline, impact template, and severity placeholder; unconfirmed records stay in a validation table. The draft always includes a pre-submit checklist for scope source, Known Issues, duplicates, redaction, impact, evidence path, and official channel.
 
 Status values from the analyzer:
 

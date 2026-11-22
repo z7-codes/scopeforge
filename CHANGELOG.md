@@ -11,6 +11,8 @@
 - Rewrote `findings.py` and the CLI around `findings list` and `verify`; only operator-confirmed findings write evidence.
 - Added passive `search` providers: DDG, Google CSE, Brave, and local URL file. Search never auto-chains into scan or probe.
 - Added global/per-host budgets, per-scope resume state, package data for JSON catalogs, and ruff/mypy configuration.
+- Rewrote the Markdown report generator to be deterministic, evidence-backed, and draft-only, with a manual reproduction outline, impact template, severity placeholder, and pre-submit checklist.
+- Added `report --scope-source` and updated the README for the v0.4 command surface.
 - Updated the interactive menu, README, and tests for the new safe architecture.
 
 ## 0.3.0 — 2026-11-22

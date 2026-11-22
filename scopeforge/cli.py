@@ -147,6 +147,7 @@ def build_parser() -> argparse.ArgumentParser:
     rp = sub.add_parser("report", help="render markdown report")
     rp.add_argument("analysis")
     rp.add_argument("--scope", required=True)
+    rp.add_argument("--scope-source", default="")
     rp.add_argument("--output")
 
     cf = sub.add_parser("config", help="read or set defaults")
@@ -276,7 +277,7 @@ def run_command(args: argparse.Namespace) -> str:
         return _write(render_analysis(analyze_records(records), args.format), args.output)
 
     if args.command == "report":
-        return _write(render_report(args.scope, _records(Path(args.analysis))), args.output)
+        return _write(render_report(args.scope, _records(Path(args.analysis)), args.scope_source), args.output)
 
     if args.command == "config":
         if not args.key:
