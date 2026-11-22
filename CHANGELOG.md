@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.4.0 — 2026-11-22
+
+- Added a single network gate in `scopeforge.net.Session.get()` with scope guard, budget spend, redirect blocking, 8-second timeout, 64 KB body cap, and a fixed user agent.
+- Added typed errors and exit codes: `0` success, `2` input/scope, `3` budget, `4` nothing found, `130` interrupted.
+- Added JSON-backed data catalogs for paths, dorks, and marker-only payload classes. No attack-payload ladder or `inject` command was added.
+- Added `errors.py`, `config.py`, `state.py`, `budget.py`, `net.py`, `data.py`, `validators.py`, `soft404.py`, `diff.py`, `search.py`, `evidence.py`, and `verify.py`.
+- Rewrote `exposure.py` around structural validators, soft-404 baselines, tier selection, resume support, and findings.
+- Rewrote `probe.py` as a benign multi-parameter marker probe with normalized response diffs.
+- Rewrote `findings.py` and the CLI around `findings list` and `verify`; only operator-confirmed findings write evidence.
+- Added passive `search` providers: DDG, Google CSE, Brave, and local URL file. Search never auto-chains into scan or probe.
+- Added global/per-host budgets, per-scope resume state, package data for JSON catalogs, and ruff/mypy configuration.
+- Rewrote the Markdown report generator to be deterministic, evidence-backed, and draft-only, with a manual reproduction outline, impact template, severity placeholder, and pre-submit checklist.
+- Added `report --scope-source` and updated the README for the v0.4 command surface.
+- Updated the interactive menu, README, and tests for the new safe architecture.
+- Added `safe_name()` validation for scope names and applied it to evidence and resume-state paths to prevent traversal or invalid filenames.
+- Made `__version__` the single source for CLI `--version`, the fixed user agent, and the built distribution version.
+- Added opt-in `--allow-redirect` with a one-hop cap, scope recheck, and budget accounting; the default remains no-follow and is documented.
+- Made resume state skip known paths and parameters before baselining, so a full replay sends zero requests.
+
 ## 0.3.0 — 2026-11-22
 
 - Added `exposure` command that generates a manual public-exposure worksheet from scoped dork queries.

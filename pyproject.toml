@@ -3,15 +3,39 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "scopeforge"
-version = "0.3.0"
-description = "Scope-safe recon planning, evidence triage, and report drafting."
+name = "scopeforge-cli"
+description = "Scope-safe recon planning, exposure proof, and evidence triage for bug bounty and labs."
 requires-python = ">=3.10"
 authors = [{ name = "z7-codes" }]
 readme = "README.md"
+keywords = ["bug-bounty", "recon", "google-dorks", "osint", "security", "triage"]
+classifiers = [
+  "Environment :: Console",
+  "Intended Audience :: Information Technology",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Security",
+]
+dynamic = ["version"]
 
 [project.scripts]
 scopeforge = "scopeforge.cli:main"
 
+[tool.setuptools.dynamic]
+version = { attr = "scopeforge.__version__" }
+
 [tool.setuptools.packages.find]
 include = ["scopeforge*"]
+
+[tool.setuptools.package-data]
+scopeforge = ["data/*.json"]
+
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.mypy]
+python_version = "3.10"
+strict = true

@@ -1,8 +1,14 @@
+import os
+import tempfile
 import threading
 import unittest
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from unittest.mock import patch
 
-from scopeforge.probe import build_marker_urls, probe_urls, render_probe, validate_probe_target
+from scopeforge import probe
+from scopeforge.budget import Budget
+from scopeforge.errors import ScopeError
+from scopeforge.net import Session
 
 
 class EchoHandler(BaseHTTPRequestHandler):
@@ -19,23 +25,26 @@ class EchoHandler(BaseHTTPRequestHandler):
 
 
 class ProbeTests(unittest.TestCase):
-    def test_build_marker_urls_without_query(self):
-        urls = build_marker_urls("http://localhost/page", "Z7CHECK")
-        self.assertEqual(urls, ["http://localhost/page?q=Z7CHECK"])
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.env = patch.dict(os.environ, {"SCOPEFORGE_HOME": self.tmp.name})
+        self.env.start()
 
-    def test_build_marker_urls_with_query(self):
-        urls = build_marker_urls("http://localhost/page?id=1&lang=en", "Z7CHECK")
-        self.assertEqual(len(urls), 2)
-        self.assertIn("id=Z7CHECK", urls[0])
-        self.assertIn("lang=Z7CHECK", urls[1])
+    def tearDown(self):
+        self.env.stop()
+        self.tmp.cleanup()
 
-    def test_ownership_required(self):
-        with self.assertRaises(ValueError):
-            probe_urls(["http://127.0.0.1/page?q=x"], "Z7CHECK", "", False, 0)
+    def test_params_and_substitution(self):
+        url = "http://localhost/page?id=1&lang=en"
+        self.assertEqual(probe.params_of(url), ["id", "lang"])
+        changed = probe.substitute(url, "lang", "Z7CHECK")
+        self.assertIn("id=1", changed)
+        self.assertIn("lang=Z7CHECK", changed)
 
     def test_non_lab_requires_scope(self):
-        with self.assertRaises(ValueError):
-            validate_probe_target("https://example.com/page?q=x", "")
+        session = Session(budget=Budget(delay=0))
+        with self.assertRaises(ScopeError):
+            probe.run(session, "lab", ["https://example.com/page?q=x"])
 
     def test_local_probe_reflection(self):
         server = ThreadingHTTPServer(("127.0.0.1", 0), EchoHandler)
@@ -43,21 +52,21 @@ class ProbeTests(unittest.TestCase):
         thread.start()
         try:
             url = f"http://127.0.0.1:{server.server_port}/page?name=test"
-            results = probe_urls([url], "Z7CHECK", "", True, 0)
-            self.assertEqual(len(results), 1)
-            self.assertTrue(results[0]["reflected"])
-            self.assertEqual(results[0]["status_code"], 200)
-            self.assertEqual(results[0]["status"], "needs-validation")
+            session = Session(budget=Budget(delay=0), lab=True)
+            result = probe.run(session, "lab", [url], marker="Z7CHECK")
+            self.assertEqual(len(result.findings), 1)
+            item = result.findings[0]
+            self.assertEqual(item.parameter, "name")
+            self.assertTrue(item.reflection)
+            self.assertEqual(item.injected_status, 200)
         finally:
             server.shutdown()
             server.server_close()
             thread.join(timeout=2)
 
-    def test_render(self):
-        results = [{"url": "http://localhost/?q=[redacted]", "status_code": 200, "reflected": True, "context": "html-text", "next_step": "check", "excerpt": ""}]
-        self.assertIn("ScopeForge benign marker probe", render_probe(results))
-        self.assertIn('"reflected"', render_probe(results, "json"))
-        self.assertIn("| URL | Status | Reflected |", render_probe(results, "md"))
+    def test_render_states_boundary(self):
+        self.assertIn("Benign probe", probe.render(probe.ProbeResult([], 0, 0)))
+        self.assertIn("not a vulnerability declaration", probe.render(probe.ProbeResult([], 0, 0)))
 
 
 if __name__ == "__main__":

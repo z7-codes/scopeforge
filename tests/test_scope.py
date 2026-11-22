@@ -1,50 +1,56 @@
 import os
 import tempfile
 import unittest
+from unittest.mock import patch
 
+from scopeforge.errors import ScopeError
 from scopeforge.models import Scope
-from scopeforge.scope import add_scope, check_scope, get_scope, normalize_token, valid_host
+from scopeforge.scope import add_scope, guard, safe_name
+
+SCOPE = Scope(name="t", domains=["example.com", "*.example.org"], exclusions=["staging.example.org"])
 
 
-class ScopeTests(unittest.TestCase):
+class GuardTests(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
-        os.environ["SCOPEFORGE_HOME"] = self.tmp.name
+        self.env = patch.dict(os.environ, {"SCOPEFORGE_HOME": self.tmp.name})
+        self.env.start()
 
     def tearDown(self):
-        os.environ.pop("SCOPEFORGE_HOME", None)
+        self.env.stop()
         self.tmp.cleanup()
 
-    def test_normalize_token(self):
-        self.assertEqual(normalize_token("HTTPS://WWW.Example.com/path"), "www.example.com")
-        self.assertEqual(normalize_token("*.example.com"), "*.example.com")
-        self.assertEqual(normalize_token("localhost:8080"), "localhost")
+    def test_exact_allowed(self):
+        self.assertTrue(guard(SCOPE, "https://example.com/a").allowed)
 
-    def test_valid_host(self):
-        self.assertTrue(valid_host("example.com"))
-        self.assertTrue(valid_host("*.example.com"))
-        self.assertTrue(valid_host("127.0.0.1"))
-        self.assertFalse(valid_host("not a domain"))
+    def test_wildcard_allowed(self):
+        self.assertTrue(guard(SCOPE, "https://api.example.org/a").allowed)
 
-    def test_exact_scope(self):
-        scope = Scope("main", ["example.com"], ["admin.example.com"])
-        self.assertTrue(check_scope(scope, "https://www.example.com/a").allowed)
-        self.assertFalse(check_scope(scope, "https://admin.example.com").allowed)
-        self.assertFalse(check_scope(scope, "https://evil.example.net").allowed)
+    def test_exclusion_blocked(self):
+        with self.assertRaises(ScopeError):
+            guard(SCOPE, "https://staging.example.org")
 
-    def test_wildcard_scope(self):
-        scope = Scope("main", ["*.example.com"], ["dev.example.com"])
-        self.assertTrue(check_scope(scope, "api.example.com").allowed)
-        self.assertTrue(check_scope(scope, "example.com").allowed)
-        self.assertFalse(check_scope(scope, "dev.example.com").allowed)
-        self.assertFalse(check_scope(scope, "example.org").allowed)
+    def test_outside_blocked(self):
+        with self.assertRaises(ScopeError):
+            guard(SCOPE, "https://evil.test")
 
-    def test_add_and_get_scope(self):
-        scope = add_scope("main", ["example.com"], ["staging.example.com"], "policy")
-        loaded = get_scope("main")
-        self.assertEqual(loaded.name, scope.name)
-        self.assertEqual(loaded.exclusions, ["staging.example.com"])
-        self.assertEqual(loaded.source, "policy")
+    def test_scheme_required(self):
+        with self.assertRaises(ScopeError):
+            guard(SCOPE, "example.com")
+
+    def test_lab_without_scope_allowed(self):
+        self.assertTrue(guard(None, "http://localhost:3000", lab=True).allowed)
+
+    def test_lab_without_flag_blocked(self):
+        with self.assertRaises(ScopeError):
+            guard(None, "http://localhost:3000")
+
+    def test_scope_name_sanitized(self):
+        with self.assertRaises(ValueError):
+            add_scope("a/b", ["x.test"])
+        with self.assertRaises(ValueError):
+            add_scope("../evil", ["x.test"])
+        self.assertEqual(safe_name("Acme.Api"), "acme.api")
 
 
 if __name__ == "__main__":

@@ -1,7 +1,131 @@
 from __future__ import annotations
 
-from .dorks import CATEGORIES, build_plan
+from dataclasses import dataclass
+from typing import Callable
+
+from . import findings, soft404
+from .analyzer import redact
+from .data import load
+from .dorks import build_plan
 from .models import Scope
+from .net import Session
+from .state import load_seen, remember
+from .validators import resolve
+
+TIER_ORDER = ("high", "medium", "low")
+
+
+@dataclass(frozen=True)
+class Rule:
+    path: str
+    label: str
+    tier: str
+    validator: Callable | None
+    chain: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
+class ScanResult:
+    findings: list
+    sent: int
+    skipped: int
+
+
+def load_rules(tier: str = "high") -> list[Rule]:
+    key = tier.strip().lower()
+    if key not in (*TIER_ORDER, "all"):
+        raise ValueError("tier must be high, medium, low, or all")
+    allowed = set(TIER_ORDER) if key == "all" else set(TIER_ORDER[: TIER_ORDER.index(key) + 1])
+    rules: list[Rule] = []
+    for item in load("paths").get("rules", []):
+        if str(item.get("tier")) not in allowed:
+            continue
+        chain = tuple(str(path) for path in item.get("chain", []))
+        rules.append(
+            Rule(str(item["path"]), str(item["label"]), str(item["tier"]), resolve(item.get("validator")), chain)
+        )
+    return rules
+
+
+def _enqueue(queue: list[Rule], rules_by_path: dict[str, Rule], rule: Rule) -> None:
+    for path in rule.chain:
+        chained = rules_by_path.get(path)
+        if chained is not None:
+            queue.insert(0, chained)
+
+
+def run(
+    session: Session,
+    scope_name: str,
+    host: str,
+    tier: str = "high",
+    include_maybe: bool = False,
+    chain_git: bool = True,
+    resume: bool = True,
+    seen: set[str] | None = None,
+) -> ScanResult:
+    queue = load_rules(tier)
+    rules_by_path = {item.path: item for item in load_rules("all")}
+    done: set[str] = set(seen or set())
+    if resume and scope_name:
+        done |= load_seen(scope_name)
+    if all(rule.path in done for rule in queue):
+        return ScanResult([], 0, len(queue))
+    baseline = soft404.build(session, host)
+    produced: list = []
+    sent = 0
+    skipped = 0
+
+    while queue:
+        rule = queue.pop(0)
+        if rule.path in done:
+            skipped += 1
+            continue
+        done.add(rule.path)
+        url = host.rstrip("/") + rule.path
+        response = session.get(url)
+        sent += 1
+        if resume and scope_name:
+            remember(scope_name, rule.path, "exposure")
+        verdict, reason = soft404.classify(
+            rule.validator, response.status, response.body, baseline, response.content_type
+        )
+        if verdict == "exposed":
+            confidence = "high"
+        elif verdict == "maybe" and include_maybe:
+            confidence = "low"
+        else:
+            continue
+        excerpt = redact(response.text[:200]) if verdict == "exposed" else ""
+        produced.append(
+            findings.add(
+                scope=scope_name,
+                kind="exposure",
+                category="exposure",
+                url=url,
+                confidence=confidence,
+                surface=rule.label,
+                signal=f"{reason}: {rule.label}",
+                excerpt=excerpt,
+                baseline_status=baseline.status,
+                baseline_size=baseline.size,
+                injected_status=response.status,
+                injected_size=len(response.body),
+            )
+        )
+        if chain_git:
+            _enqueue(queue, rules_by_path, rule)
+    return ScanResult(produced, sent, skipped)
+
+
+def render(result: ScanResult) -> str:
+    lines = [f"Exposure scan - {result.sent} requests, {result.skipped} skipped, {len(result.findings)} finding(s)", ""]
+    if not result.findings:
+        lines.append("Nothing matched a structural validator.")
+        return "\n".join(lines)
+    lines.extend(f"{item.id}  {item.confidence:<6}  {item.url}  <- {item.signal}" for item in result.findings)
+    lines.extend(["", "Next: scopeforge verify <id>"])
+    return "\n".join(lines)
 
 
 def build_worksheet(scope_name: str, domain: str, source: str = "", per_category: int = 10) -> str:
@@ -13,29 +137,26 @@ def build_worksheet(scope_name: str, domain: str, source: str = "", per_category
         f"Domain: {domain}",
         f"Scope source: {source or 'not recorded'}",
         "",
-        "Run these searches manually in your own browser. ScopeForge does not query search engines or targets.",
-        "A public result is a lead, not proof of a vulnerability. Confirm scope and Known Issues before deeper work.",
+        "Run these searches manually in a browser. A public result is a lead, not proof.",
         "",
     ]
-    for category in CATEGORIES:
+    for category in load("dorks").get("categories", {}):
         records = build_plan(scope, category, per_category)
         lines.append(f"## {category.upper()}")
         lines.append("")
         lines.append("| ID | Query | Public? | Evidence | Decision |")
         lines.append("|---|---|---|---|---|")
-        for item in records:
-            lines.append(f"| {item['id']} | `{item['query']}` | [ ] | - | needs validation |")
+        lines.extend(f"| {item['id']} | `{item['query']}` | [ ] | - | needs validation |" for item in records)
         lines.append("")
     lines.extend(
         [
             "## Decision rules",
             "",
             "- [ ] Scope source recorded",
-            "- [ ] Public result is inside written scope",
-            "- [ ] Result is not listed in Known Issues",
-            "- [ ] Evidence is redacted",
-            "- [ ] Impact is written in one clear sentence",
-            "- [ ] No payload was fired at an unscoped asset",
+            "- [ ] Result inside written scope",
+            "- [ ] Not listed in Known Issues",
+            "- [ ] Evidence redacted",
+            "- [ ] Impact in one clear sentence",
         ]
     )
     return "\n".join(lines)
