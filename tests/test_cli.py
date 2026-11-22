@@ -9,6 +9,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from scopeforge.cli import main
+from scopeforge.findings import add_finding
 
 
 class CliTests(unittest.TestCase):
@@ -157,6 +158,42 @@ class CliTests(unittest.TestCase):
         code, out, err = self.run_cli("plan", "missing")
         self.assertEqual(code, 2)
         self.assertIn("scope not found", err)
+
+    def test_scan_requires_ownership(self):
+        self.run_cli("scope", "add", "lab", "--domain", "localhost")
+        code, out, err = self.run_cli("scan", "http://localhost:3000", "--scope", "lab")
+        self.assertEqual(code, 2)
+        self.assertIn("--i-own-this", err)
+
+    def test_findings_and_verify_flow(self):
+        finding = add_finding(
+            "main",
+            "exposure",
+            "exposure",
+            "http://localhost:3000/.env",
+            "high",
+            surface="dotenv",
+            signal="structural match: dotenv",
+            excerpt="API_KEY=REDACTED",
+        )
+        code, out, err = self.run_cli("findings", "list", "--scope", "main", "--format", "json")
+        self.assertEqual(code, 0, err)
+        self.assertEqual(len(json.loads(out)), 1)
+
+        code, out, err = self.run_cli(
+            "verify", finding.id, "--status", "confirmed", "--note", "verified in browser"
+        )
+        self.assertEqual(code, 0, err)
+        self.assertIn("confirmed " + finding.id, out)
+
+        code, out, err = self.run_cli("findings", "list", "--scope", "main", "--status", "confirmed")
+        self.assertEqual(code, 0, err)
+        self.assertIn(finding.id, out)
+
+        evidence_path = Path(self.tmp.name) / "evidence" / "main.json"
+        evidence = json.loads(evidence_path.read_text(encoding="utf-8"))
+        self.assertEqual(evidence[0]["id"], "EV-" + finding.id[2:])
+        self.assertTrue(evidence[0]["manual_confirmed"])
 
 
 if __name__ == "__main__":

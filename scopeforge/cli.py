@@ -9,12 +9,14 @@ from typing import Any, Sequence
 from . import __version__
 from .analyzer import analyze_records, render_analysis
 from .dorks import CATEGORIES, build_plan, render_plan
-from .exposure import build_worksheet
+from .exposure import build_worksheet, render_scan, run_scan
+from .findings import get_finding, list_findings, render_findings
 from .lab import render_lab
 from .ledger import add_lead, list_leads, render_leads
 from .probe import probe_urls, render_probe
 from .report import render_report
 from .scope import add_scope, check_scope, get_scope, list_scopes
+from .verify import apply_decision, verify_interactive
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -77,6 +79,27 @@ def build_parser() -> argparse.ArgumentParser:
     probe.add_argument("--i-own-this", action="store_true")
     probe.add_argument("--format", choices=("text", "json", "md"), default="text")
     probe.add_argument("--output")
+
+    scan = sub.add_parser("scan", help="probe known exposure paths with structural validation")
+    scan.add_argument("host", help="base URL, e.g. https://app.example.com")
+    scan.add_argument("--scope", required=True)
+    scan.add_argument("--tier", choices=("high", "medium", "low", "all"), default="high")
+    scan.add_argument("--delay", type=float, default=0.4)
+    scan.add_argument("--max-requests", type=int, default=120)
+    scan.add_argument("--include-maybe", action="store_true")
+    scan.add_argument("--i-own-this", action="store_true")
+
+    findings = sub.add_parser("findings", help="list or inspect findings")
+    findings_sub = findings.add_subparsers(dest="findings_command", required=True)
+    findings_list = findings_sub.add_parser("list")
+    findings_list.add_argument("--scope")
+    findings_list.add_argument("--status", choices=("new", "confirmed", "false-positive", "skipped"))
+    findings_list.add_argument("--format", choices=("text", "json"), default="text")
+
+    verify = sub.add_parser("verify", help="confirm or reject a finding and emit evidence")
+    verify.add_argument("finding_id")
+    verify.add_argument("--status", choices=("confirmed", "false-positive", "skipped"))
+    verify.add_argument("--note", default="")
     return parser
 
 
@@ -185,6 +208,34 @@ def cmd_probe(args: argparse.Namespace) -> str:
     return write_text_output(content, args.output)
 
 
+def cmd_scan(args: argparse.Namespace) -> str:
+    if not args.i_own_this:
+        raise ValueError("explicit --i-own-this confirmation is required")
+    findings, sent = run_scan(
+        args.host,
+        args.scope,
+        tier=args.tier,
+        delay=args.delay,
+        max_requests=args.max_requests,
+        include_maybe=args.include_maybe,
+    )
+    return render_scan(findings, sent)
+
+
+def cmd_findings(args: argparse.Namespace) -> str:
+    return render_findings(list_findings(args.scope, args.status), args.format)
+
+
+def cmd_verify(args: argparse.Namespace) -> str:
+    if args.status:
+        return apply_decision(args.finding_id, args.status, args.note)
+    if not sys.stdin.isatty():
+        get_finding(args.finding_id)
+        return apply_decision(args.finding_id, "skip")
+    verify_interactive(args.finding_id)
+    return ""
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     raw_args = list(argv) if argv is not None else list(sys.argv[1:])
     if not raw_args:
@@ -213,10 +264,17 @@ def main(argv: Sequence[str] | None = None) -> int:
             output = cmd_exposure(args)
         elif args.command == "probe":
             output = cmd_probe(args)
+        elif args.command == "scan":
+            output = cmd_scan(args)
+        elif args.command == "findings":
+            output = cmd_findings(args)
+        elif args.command == "verify":
+            output = cmd_verify(args)
         else:
             raise ValueError("unknown command: " + str(args.command))
     except (ValueError, OSError, json.JSONDecodeError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2
-    print(output)
+    if output:
+        print(output)
     return 0

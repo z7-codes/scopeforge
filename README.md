@@ -17,6 +17,8 @@ It does **not** scan arbitrary domains, fire payloads, extract data, or declare 
 - Provides guided lab scenarios for localhost, DVWA, Juice Shop, and CTF targets.
 - Generates a manual public-exposure worksheet from scoped dork queries.
 - Probes explicitly owned, lab, or in-scope URLs with benign markers only.
+- Probes known exposure paths with structural validators and a soft-404 baseline on owned/lab/in-scope hosts.
+- Stores findings locally and supports confirm, false-positive, and skip decisions with evidence export.
 
 ## Devil Mode
 
@@ -93,6 +95,28 @@ Safety gates:
 - Redirects are blocked.
 - Requests are rate limited.
 - Output is redacted and always says `needs-validation`; it never declares a vulnerability.
+
+## Structural exposure scan
+
+For hosts you own, labs, or written in-scope assets only. The scanner sends ordinary GET requests to a small catalog of known paths, uses response validators plus a soft-404 baseline to reduce false positives, and never fires exploit payloads.
+
+```bash
+scopeforge scope add lab --domain localhost --source "juice-shop local"
+scopeforge scan http://localhost:3000 --scope lab --tier all --i-own-this
+scopeforge findings list --scope lab
+scopeforge verify <id> --status confirmed --note "verified in browser"
+scopeforge analyze ~/.scopeforge/evidence
+```
+
+Useful scan flags:
+
+- `--tier high|medium|low|all` filters the path catalog by severity.
+- `--delay` sets the pause between requests; default is `0.4` seconds.
+- `--max-requests` caps the run; default is `120`.
+- `--include-maybe` records protected or ambiguous responses as low-confidence findings.
+- `--i-own-this` is mandatory.
+
+Findings stay `new` until you run `verify`. Only `confirmed` findings are written to the evidence directory. Every record still needs manual validation before a report.
 
 ## Quick start
 

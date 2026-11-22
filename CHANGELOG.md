@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.4.0 — 2026-11-22
+
+- Added a structural exposure scan for explicitly owned, lab, or in-scope hosts.
+- Added a path validator catalog with soft-404 baseline comparison to reduce false positives.
+- Added a local findings store with `findings list` and a `verify` confirm/false-positive/skip loop.
+- Added evidence export from confirmed findings into `~/.scopeforge/evidence/<scope>.json`.
+- Added rate limiting, request caps, scope checks, and mandatory `--i-own-this` confirmation to the scan workflow.
+- Added tests for validators, soft-404 handling, findings decisions, and CLI wiring.
+
 ## 0.3.0 — 2026-11-22
 
 - Added `exposure` command that generates a manual public-exposure worksheet from scoped dork queries.
