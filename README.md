@@ -84,7 +84,7 @@ Run:
 
 ```bash
 scopeforge analyze evidence.json
-scopeforge analyze evidence.json --format json > analysis.json
+scopeforge analyze evidence.json --format json --output analysis.json
 scopeforge report analysis.json --scope main --output report.md
 ```
 

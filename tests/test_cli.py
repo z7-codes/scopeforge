@@ -87,6 +87,20 @@ class CliTests(unittest.TestCase):
         self.assertIn("ScopeForge Lab Mode", out)
         self.assertIn("No requests are sent", out)
 
+    def test_analyze_output(self):
+        evidence_path = Path(self.tmp.name) / "evidence.json"
+        evidence = [{"category": "recon", "authorized": True, "surface": "docs"}]
+        evidence_path.write_text(json.dumps(evidence), encoding="utf-8")
+        output_path = Path(self.tmp.name) / "analysis.json"
+
+        code, out, err = self.run_cli(
+            "analyze", str(evidence_path), "--format", "json", "--output", str(output_path)
+        )
+        self.assertEqual(code, 0, err)
+        self.assertIn("analysis written", out)
+        data = json.loads(output_path.read_text(encoding="utf-8"))
+        self.assertEqual(data[0]["status"], "needs-validation")
+
     def test_text_output_is_ascii(self):
         code, out, err = self.run_cli("scope", "add", "main", "--domain", "example.com")
         self.assertEqual(code, 0, err)

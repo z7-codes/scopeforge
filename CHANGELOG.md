@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.2 — 2026-11-22
+
+- Added `analyze --output` so analysis JSON can be written without shell redirection or encoding issues.
+- Updated README self-check commands.
+
 ## 0.1.1 — 2026-11-22
 
 - Replaced non-ASCII CLI separators with ASCII for consistent Windows console output.

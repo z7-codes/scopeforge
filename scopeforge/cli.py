@@ -50,6 +50,7 @@ def build_parser() -> argparse.ArgumentParser:
     analyze = sub.add_parser("analyze", help="analyze recorded evidence")
     analyze.add_argument("path", help="JSON file or directory containing JSON evidence")
     analyze.add_argument("--format", choices=("text", "json", "md"), default="text")
+    analyze.add_argument("--output", help="optional file path for output")
 
     lab = sub.add_parser("lab", help="show guided lab checks")
     lab.add_argument("scenario", choices=("localhost", "dvwa", "juice-shop", "ctf"))
@@ -119,7 +120,14 @@ def cmd_analyze(args: argparse.Namespace) -> str:
     records: list[dict[str, Any]] = []
     for path in paths:
         records.extend(load_records(path))
-    return render_analysis(analyze_records(records), args.format)
+    output = render_analysis(analyze_records(records), args.format)
+    if args.output:
+        output_path = Path(args.output)
+        if output_path.parent != Path("."):
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_text(output, encoding="utf-8")
+        return f"analysis written: {output_path}"
+    return output
 
 
 def cmd_report(args: argparse.Namespace) -> str:

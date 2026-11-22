@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "scopeforge"
-version = "0.1.1"
+version = "0.1.2"
 description = "Scope-safe recon planning, evidence triage, and report drafting."
 requires-python = ">=3.10"
 authors = [{ name = "z7-codes" }]
