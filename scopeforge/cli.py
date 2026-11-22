@@ -20,6 +20,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--version", action="version", version=f"scopeforge {__version__}")
     sub = parser.add_subparsers(dest="command", required=True)
 
+    sub.add_parser("interactive", help="launch the interactive console")
+
     scope = sub.add_parser("scope", help="manage written authorization scopes")
     scope_sub = scope.add_subparsers(dest="scope_command", required=True)
     scope_add = scope_sub.add_parser("add", help="add a scope")
@@ -143,8 +145,17 @@ def cmd_report(args: argparse.Namespace) -> str:
 
 
 def main(argv: Sequence[str] | None = None) -> int:
-    args = build_parser().parse_args(argv)
+    raw_args = list(argv) if argv is not None else list(sys.argv[1:])
+    if not raw_args:
+        from .tui import run_interactive
+
+        return run_interactive()
+    args = build_parser().parse_args(raw_args)
     try:
+        if args.command == "interactive":
+            from .tui import run_interactive
+
+            return run_interactive()
         if args.command == "scope":
             output = cmd_scope_add(args) if args.scope_command == "add" else cmd_scope_list()
         elif args.command == "plan":

@@ -2,9 +2,11 @@ import contextlib
 import io
 import json
 import os
+import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from scopeforge.cli import main
 
@@ -13,9 +15,13 @@ class CliTests(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         os.environ["SCOPEFORGE_HOME"] = self.tmp.name
+        os.environ["SCOPEFORGE_NO_CLEAR"] = "1"
+        os.environ["SCOPEFORGE_NO_PAUSE"] = "1"
 
     def tearDown(self):
         os.environ.pop("SCOPEFORGE_HOME", None)
+        os.environ.pop("SCOPEFORGE_NO_CLEAR", None)
+        os.environ.pop("SCOPEFORGE_NO_PAUSE", None)
         self.tmp.cleanup()
 
     def run_cli(self, *args):
@@ -114,6 +120,21 @@ class CliTests(unittest.TestCase):
             code, out, err = self.run_cli(*args)
             self.assertEqual(code, 0, err)
             self.assertTrue(out.isascii(), out)
+
+    def test_interactive_command(self):
+        out = io.StringIO()
+        with patch("builtins.input", return_value="0"), contextlib.redirect_stdout(out):
+            code = main(["interactive"])
+        self.assertEqual(code, 0)
+        self.assertIn("SCOPEFORGE", out.getvalue())
+        self.assertIn("[01] Scope management", out.getvalue())
+
+    def test_no_args_starts_interactive(self):
+        out = io.StringIO()
+        with patch.object(sys, "argv", ["scopeforge"]), patch("builtins.input", return_value="0"), contextlib.redirect_stdout(out):
+            code = main()
+        self.assertEqual(code, 0)
+        self.assertIn("[00] Exit", out.getvalue())
 
     def test_missing_scope_error(self):
         code, out, err = self.run_cli("plan", "missing")

@@ -37,6 +37,31 @@ python -m pip install -e .
 
 Works on Windows, Linux, Arch, and macOS with Python 3.10 or newer. No API keys, no backend, no cloud dependency.
 
+## Interactive console
+
+Run the tool with no arguments for an airgeddon-style numbered menu:
+
+```bash
+scopeforge
+scopeforge interactive
+```
+
+Menu sections:
+
+```text
+[01] Scope management
+[02] Dork plan generator
+[03] Lead ledger
+[04] Evidence analyzer
+[05] Lab mode
+[06] Report generator
+[07] Safety rules
+[08] Toggle Devil Mode
+[00] Exit
+```
+
+Active scope and Devil Mode are saved locally. Devil Mode sorts analysis results by signal score and keeps the same no-exploitation safety boundary.
+
 ## Quick start
 
 ```bash

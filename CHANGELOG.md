@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.2.0 — 2026-11-22
+
+- Added an airgeddon-style interactive console launched with `scopeforge` or `scopeforge interactive`.
+- Added numbered menus for scopes, dork plans, leads, evidence analysis, labs, reports, and safety rules.
+- Added persistent active scope and Devil Mode state.
+- Devil Mode now sorts analysis results by signal score.
+- Kept all existing non-interactive CLI commands unchanged.
+
 ## 0.1.2 — 2026-11-22
 
 - Added `analyze --output` so analysis JSON can be written without shell redirection or encoding issues.
