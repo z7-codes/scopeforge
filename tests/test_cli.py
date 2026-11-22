@@ -7,6 +7,8 @@ from unittest.mock import patch
 from urllib.parse import urlsplit
 
 from scopeforge import cli
+from scopeforge.cli import parse_headers
+from scopeforge.errors import UsageError
 from scopeforge.net import Response
 from scopeforge.scope import add_scope
 
@@ -36,6 +38,14 @@ class CliTests(unittest.TestCase):
         with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
             code = cli.main(argv)
         return code, out.getvalue(), err.getvalue()
+
+    def test_parse_headers(self):
+        self.assertEqual(
+            parse_headers(["X-Test: 1"], "a=b"),
+            {"X-Test": "1", "Cookie": "a=b"},
+        )
+        with self.assertRaises(UsageError):
+            parse_headers(["bogus"])
 
     def test_help_has_no_inject_command(self):
         help_text = cli.build_parser().format_help()

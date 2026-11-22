@@ -2,7 +2,11 @@
 
 [![CI](https://github.com/z7-codes/scopeforge/actions/workflows/ci.yml/badge.svg)](https://github.com/z7-codes/scopeforge/actions/workflows/ci.yml)
 
-ScopeForge is a cross-platform command-line tool for scope-safe recon, manual proof collection, and report drafting. It is the companion tool to [Advanced Google Dorks](https://github.com/z7-codes/advanced-google-dorks).
+> PyPI pe naam `scopeforge` kisi aur project ka hai. Isliye package `scopeforge-cli` hai, command `scopeforge`.
+> `pip install scopeforge-cli`
+
+ScopeForge is a cross-platform command-line tool
+ for scope-safe recon, manual proof collection, and report drafting. It is the companion tool to [Advanced Google Dorks](https://github.com/z7-codes/advanced-google-dorks).
 
 It does **not** scan arbitrary domains, fire attack payloads, exploit findings, extract data, bypass WAFs, or declare vulnerabilities automatically. Every engine stops at a signal plus a copy-pasteable request; the operator confirms impact.
 

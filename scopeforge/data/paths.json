@@ -1,8 +1,12 @@
 {
   "version": 1,
   "rules": [
-    {"path": "/.env", "label": "dotenv", "tier": "high", "validator": "env"},
-    {"path": "/.git/HEAD", "label": "git-head", "tier": "high", "validator": "git_head"},
+    {"path": "/.env", "label": "dotenv", "tier": "high", "validator": "env", "chain": ["/.env.local", "/.env.dev", "/.env.production", "/.env.backup"]},
+    {"path": "/.env.local", "label": "dotenv-local", "tier": "high", "validator": "env"},
+    {"path": "/.env.dev", "label": "dotenv-dev", "tier": "high", "validator": "env"},
+    {"path": "/.env.production", "label": "dotenv-prod", "tier": "high", "validator": "env"},
+    {"path": "/.env.backup", "label": "dotenv-backup", "tier": "high", "validator": "env"},
+    {"path": "/.git/HEAD", "label": "git-head", "tier": "high", "validator": "git_head", "chain": ["/.git/config", "/.git/logs/HEAD"]},
     {"path": "/.git/config", "label": "git-config", "tier": "high", "validator": "git_config"},
     {"path": "/.git/logs/HEAD", "label": "git-log", "tier": "high", "validator": "git_log"},
     {"path": "/actuator/env", "label": "spring-env", "tier": "high", "validator": "actuator_env"},

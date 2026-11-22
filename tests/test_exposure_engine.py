@@ -35,7 +35,7 @@ class ExposureEngineTests(unittest.TestCase):
 
     def test_rules_are_tiered(self):
         self.assertGreaterEqual(len(exposure.load_rules("high")), 10)
-        self.assertEqual(len(exposure.load_rules("all")), 32)
+        self.assertEqual(len(exposure.load_rules("all")), 36)
         with self.assertRaises(ValueError):
             exposure.load_rules("critical")
 
@@ -48,6 +48,20 @@ class ExposureEngineTests(unittest.TestCase):
         self.assertEqual(item.url, "https://example.com/.env")
         self.assertIn("structural match", item.signal)
         self.assertIn("Exposure scan", exposure.render(result))
+
+    def test_env_chain_is_data_driven(self):
+        def env_fetch(url: str, *args, **kwargs) -> Response:
+            path = urlsplit(url).path
+            if path in ("/.env", "/.env.local"):
+                body = b"APP_ENV=production\nAPI_URL=https://api.example.test\n"
+                return Response(url, 200, {"Content-Type": "text/plain"}, body, 0.01)
+            return fake_fetch(url, *args, **kwargs)
+
+        with patch("scopeforge.net.fetch", side_effect=env_fetch):
+            result = exposure.run(self.session, "t", "https://example.com", tier="high")
+        urls = {item.url for item in result.findings}
+        self.assertIn("https://example.com/.env", urls)
+        self.assertIn("https://example.com/.env.local", urls)
 
     def test_soft_404_is_suppressed(self):
         def generic(url, *args, **kwargs):

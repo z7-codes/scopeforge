@@ -34,6 +34,16 @@ class NetTests(unittest.TestCase):
         self.assertEqual(mocked.call_count, 1)
         self.assertEqual(session.budget.sent, 1)
 
+    def test_session_headers_reach_fetch(self):
+        session = net.Session(
+            budget=Budget(delay=0),
+            scope=Scope("t", ["example.com"]),
+            headers={"Cookie": "a=b"},
+        )
+        with patch("scopeforge.net.fetch", return_value=net.Response("u", 200, {}, b"ok", 0.1)) as mocked:
+            session.get("https://example.com/a")
+        self.assertEqual(mocked.call_args.args[3], {"Cookie": "a=b"})
+
     def test_scope_is_checked_before_fetch(self):
         session = net.Session(budget=Budget(delay=0), scope=Scope("t", ["example.com"]))
         with patch("scopeforge.net.fetch") as mocked:

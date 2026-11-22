@@ -4,7 +4,7 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Mapping
 
 from . import __version__
@@ -81,6 +81,7 @@ class Session:
     lab: bool = False
     timeout: float = 8.0
     max_bytes: int = 65536
+    headers: dict[str, str] = field(default_factory=dict)
     allow_redirect: bool = False
     max_redirects: int = 1
 
@@ -106,4 +107,4 @@ class Session:
 
     def _fetch_checked(self, url: str) -> Response:
         self.budget.spend(normalize_token(url))
-        return fetch(url, self.timeout, self.max_bytes)
+        return fetch(url, self.timeout, self.max_bytes, self.headers)

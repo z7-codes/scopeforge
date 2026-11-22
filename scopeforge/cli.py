@@ -34,8 +34,21 @@ def _session(scope_name: str | None, lab: bool, args: argparse.Namespace) -> Ses
         lab=lab,
         timeout=config.timeout,
         max_bytes=config.max_bytes,
+        headers=parse_headers(getattr(args, "header", None), getattr(args, "cookie", "")),
         allow_redirect=bool(getattr(args, "allow_redirect", False)),
     )
+
+
+def parse_headers(pairs: list[str] | None, cookie: str = "") -> dict[str, str]:
+    headers: dict[str, str] = {}
+    for raw in pairs or []:
+        if ":" not in raw:
+            raise UsageError("header must look like 'Name: value': " + raw)
+        key, _, value = raw.partition(":")
+        headers[key.strip()] = value.strip()
+    if cookie:
+        headers["Cookie"] = cookie.strip()
+    return headers
 
 
 def _owned(args: argparse.Namespace) -> None:
@@ -113,6 +126,8 @@ def build_parser() -> argparse.ArgumentParser:
     sca.add_argument("--max-per-host", type=int)
     sca.add_argument("--include-maybe", action="store_true")
     sca.add_argument("--allow-redirect", action="store_true", help="follow at most one in-scope redirect")
+    sca.add_argument("--header", action="append", default=[], help="extra request header 'Name: value'")
+    sca.add_argument("--cookie", default="", help="Cookie header value")
     sca.add_argument("--no-resume", action="store_true")
     sca.add_argument("--i-own-this", action="store_true")
 
@@ -126,6 +141,8 @@ def build_parser() -> argparse.ArgumentParser:
     pb.add_argument("--max-requests", type=int)
     pb.add_argument("--max-per-host", type=int)
     pb.add_argument("--allow-redirect", action="store_true", help="follow at most one in-scope redirect")
+    pb.add_argument("--header", action="append", default=[], help="extra request header 'Name: value'")
+    pb.add_argument("--cookie", default="", help="Cookie header value")
     pb.add_argument("--no-resume", action="store_true")
     pb.add_argument("--i-own-this", action="store_true")
 

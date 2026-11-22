@@ -21,6 +21,7 @@ class Rule:
     label: str
     tier: str
     validator: Callable | None
+    chain: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -39,8 +40,18 @@ def load_rules(tier: str = "high") -> list[Rule]:
     for item in load("paths").get("rules", []):
         if str(item.get("tier")) not in allowed:
             continue
-        rules.append(Rule(str(item["path"]), str(item["label"]), str(item["tier"]), resolve(item.get("validator"))))
+        chain = tuple(str(path) for path in item.get("chain", []))
+        rules.append(
+            Rule(str(item["path"]), str(item["label"]), str(item["tier"]), resolve(item.get("validator")), chain)
+        )
     return rules
+
+
+def _enqueue(queue: list[Rule], rules_by_path: dict[str, Rule], rule: Rule) -> None:
+    for path in rule.chain:
+        chained = rules_by_path.get(path)
+        if chained is not None:
+            queue.insert(0, chained)
 
 
 def run(
@@ -54,6 +65,7 @@ def run(
     seen: set[str] | None = None,
 ) -> ScanResult:
     queue = load_rules(tier)
+    rules_by_path = {item.path: item for item in load_rules("all")}
     done: set[str] = set(seen or set())
     if resume and scope_name:
         done |= load_seen(scope_name)
@@ -83,8 +95,6 @@ def run(
         elif verdict == "maybe" and include_maybe:
             confidence = "low"
         else:
-            if chain_git and rule.path == "/.git/HEAD" and verdict != "absent":
-                queue = [item for item in load_rules("high") if item.path.startswith("/.git/")] + queue
             continue
         excerpt = redact(response.text[:200]) if verdict == "exposed" else ""
         produced.append(
@@ -103,8 +113,8 @@ def run(
                 injected_size=len(response.body),
             )
         )
-        if chain_git and rule.path == "/.git/HEAD":
-            queue = [item for item in load_rules("high") if item.path.startswith("/.git/")] + queue
+        if chain_git:
+            _enqueue(queue, rules_by_path, rule)
     return ScanResult(produced, sent, skipped)
 
 
