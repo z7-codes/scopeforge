@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.1 — 2026-11-22
+
+- Replaced non-ASCII CLI separators with ASCII for consistent Windows console output.
+- Added a regression test that checks text-mode CLI output stays ASCII.
+
 ## 0.1.0 — 2026-11-22
 
 - Added scope parser with wildcard and exclusion support.

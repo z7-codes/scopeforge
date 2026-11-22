@@ -95,7 +95,7 @@ def render_plan(records: list[dict[str, Any]], fmt: str = "text") -> str:
         return "\n".join(lines)
     if fmt != "text":
         raise ValueError("format must be text, json, or md")
-    lines = [f"ScopeForge plan — {len(records)} queries", ""]
+    lines = [f"ScopeForge plan - {len(records)} queries", ""]
     lines.extend(f"{item['id']}  [{item['category']}/{item['technique']}]  {item['query']}" for item in records)
     lines.extend(["", SAFETY])
     return "\n".join(lines)

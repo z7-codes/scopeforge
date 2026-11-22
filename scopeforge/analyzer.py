@@ -142,7 +142,7 @@ def render_analysis(records: list[dict[str, Any]], fmt: str = "text") -> str:
         return "\n".join(lines)
     if fmt != "text":
         raise ValueError("format must be text, json, or md")
-    lines = ["ScopeForge analysis — evidence signals only", ""]
+    lines = ["ScopeForge analysis - evidence signals only", ""]
     for item in records:
         lines.append(f"{item['id']}  [{item['category']}]  {item['status']}  score={item['score']}")
         lines.append(f"  reason: {item['reason']}")

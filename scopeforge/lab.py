@@ -37,7 +37,7 @@ def render_lab(scenario: str) -> str:
     if key not in LABS:
         available = ", ".join(sorted(LABS))
         raise ValueError("unknown lab scenario: " + str(scenario) + " | available: " + available)
-    lines = [f"# ScopeForge Lab Mode — {key}", "", "Guided checks only. No requests are sent by this tool.", ""]
+    lines = [f"# ScopeForge Lab Mode - {key}", "", "Guided checks only. No requests are sent by this tool.", ""]
     lines.extend(f"{index}. {step}" for index, step in enumerate(LABS[key], start=1))
     lines.extend(["", "Devil Mode here means deeper observation and stricter scoring, never exploitation."])
     return "\n".join(lines)

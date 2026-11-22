@@ -87,6 +87,20 @@ class CliTests(unittest.TestCase):
         self.assertIn("ScopeForge Lab Mode", out)
         self.assertIn("No requests are sent", out)
 
+    def test_text_output_is_ascii(self):
+        code, out, err = self.run_cli("scope", "add", "main", "--domain", "example.com")
+        self.assertEqual(code, 0, err)
+        commands = [
+            ("scope", "list"),
+            ("plan", "main"),
+            ("lead", "list"),
+            ("lab", "localhost"),
+        ]
+        for args in commands:
+            code, out, err = self.run_cli(*args)
+            self.assertEqual(code, 0, err)
+            self.assertTrue(out.isascii(), out)
+
     def test_missing_scope_error(self):
         code, out, err = self.run_cli("plan", "missing")
         self.assertEqual(code, 2)

@@ -85,7 +85,7 @@ def cmd_scope_list() -> str:
     scopes = list_scopes()
     if not scopes:
         return "No scopes saved."
-    lines = [f"Scopes — {len(scopes)}"]
+    lines = [f"Scopes - {len(scopes)}"]
     for scope in scopes:
         exclusions = ", ".join(scope.exclusions) or "-"
         source = scope.source or "-"

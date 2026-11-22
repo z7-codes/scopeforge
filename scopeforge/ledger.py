@@ -53,7 +53,7 @@ def render_leads(leads: list[Lead], fmt: str = "text") -> str:
         raise ValueError("format must be text or json")
     if not leads:
         return "No leads recorded."
-    lines = [f"Lead ledger — {len(leads)} entries", ""]
+    lines = [f"Lead ledger - {len(leads)} entries", ""]
     lines.extend(
         f"{item.id}  [{item.scope}/{item.category}]  {item.candidate}  <- {item.source or 'unknown source'}"
         for item in leads
