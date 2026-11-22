@@ -1,0 +1,17 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "scopeforge"
+version = "0.1.0"
+description = "Scope-safe recon planning, evidence triage, and report drafting."
+requires-python = ">=3.10"
+authors = [{ name = "z7-codes" }]
+readme = "README.md"
+
+[project.scripts]
+scopeforge = "scopeforge.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["scopeforge*"]
