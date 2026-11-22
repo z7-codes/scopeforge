@@ -74,19 +74,23 @@ def run(
     produced: list = []
     sent = 0
     skipped = 0
+    plans: list[tuple[str, list[str]]] = []
 
     for url in urls:
         parameters = params_of(url, max_params)
         if not parameters:
             skipped += 1
             continue
+        pending = [name for name in parameters if not (resume and run_key(url, name, canary) in done)]
+        skipped += len(parameters) - len(pending)
+        if pending:
+            plans.append((url, pending))
+
+    for url, parameters in plans:
         baseline = session.get(url)
         sent += 1
         for parameter in parameters:
             key = run_key(url, parameter, canary)
-            if resume and key in done:
-                skipped += 1
-                continue
             done.add(key)
             observed = session.get(substitute(url, parameter, canary))
             sent += 1

@@ -4,7 +4,7 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from scopeforge import evidence
+from scopeforge import evidence, state
 from scopeforge.models import Finding
 
 
@@ -48,6 +48,12 @@ class EvidenceTests(unittest.TestCase):
         record = evidence.to_record(self.finding)
         self.assertNotIn("parameter", record)
         self.assertNotIn("payload", record)
+
+    def test_paths_reject_traversal(self):
+        with self.assertRaises(ValueError):
+            evidence.path_for("../evil")
+        with self.assertRaises(ValueError):
+            state.state_path("a/b")
 
 
 if __name__ == "__main__":

@@ -66,6 +66,24 @@ class CliTests(unittest.TestCase):
         self.assertEqual(code, 3)
         self.assertIn("budget", err.lower())
 
+    def test_budget_five_requests_exit_code(self):
+        self.assertEqual(self.call(["config", "max_requests", "5"])[0], 0)
+        with patch("scopeforge.net.fetch", side_effect=fake_fetch):
+            code, _, err = self.call(
+                ["scan", "http://localhost:3000", "--lab", "--delay", "0", "--i-own-this"]
+            )
+        self.assertEqual(code, 3)
+        self.assertIn("budget", err.lower())
+
+    def test_probe_outside_scope_is_blocked(self):
+        with patch("scopeforge.net.fetch") as mocked:
+            code, _, err = self.call(
+                ["probe", "https://evil.test/search?q=test", "--scope", "t", "--i-own-this"]
+            )
+        self.assertEqual(code, 2)
+        mocked.assert_not_called()
+        self.assertIn("scope", err.lower())
+
     def test_unknown_command(self):
         with self.assertRaises(SystemExit) as raised:
             cli.main(["nope"])

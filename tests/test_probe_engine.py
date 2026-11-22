@@ -54,6 +54,14 @@ class ProbeEngineTests(unittest.TestCase):
         self.assertEqual(result.findings, [])
         self.assertEqual(result.skipped, 1)
 
+    def test_resume_all_parameters_sends_nothing(self):
+        seen = {run_key(URL, name, "z7sf7q") for name in ("q", "lang")}
+        with patch("scopeforge.net.fetch") as mocked:
+            result = probe.run(self.session, "t", [URL], seen=seen)
+        mocked.assert_not_called()
+        self.assertEqual(result.sent, 0)
+        self.assertEqual(result.skipped, 2)
+
     def test_missing_query_is_skipped(self):
         with patch("scopeforge.net.fetch", side_effect=fake_fetch):
             result = probe.run(self.session, "t", ["https://example.com/"])

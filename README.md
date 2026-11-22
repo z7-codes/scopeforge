@@ -11,7 +11,7 @@ It does **not** scan arbitrary domains, fire attack payloads, exploit findings, 
 - One network choke point: `scopeforge.net.Session.get()` runs `guard()` -> `budget.spend()` -> `fetch()`.
 - Written scope plus exclusions are mandatory for non-lab targets. Lab hosts need `--lab`.
 - `--i-own-this` is mandatory for `scan` and `probe`.
-- No redirects, 8-second timeout, 64 KB body cap, fixed `ScopeForge/0.4` user agent.
+- Redirects are not followed by default; `--allow-redirect` follows at most one hop and rechecks scope. 8-second timeout, 64 KB body cap, fixed `ScopeForge/0.4` user agent.
 - Global and per-host budgets, typed exit codes, resume state, and redacted evidence.
 - `search` is passive only. It never feeds `scan` or `probe` automatically.
 - The payload catalog is marker-only. There is no SQLi/XSS/traversal/redirect/SSTI/CRLF ladder and no `inject` command.
@@ -96,6 +96,8 @@ scopeforge scan https://example.com --scope main --tier high --i-own-this
 scopeforge scan https://example.com --scope main --tier all --include-maybe --no-resume --i-own-this
 ```
 
+Attempted paths and parameters are recorded per scope. A full replay skips every known item before baselining, so it sends zero requests; `--no-resume` ignores that state.
+
 ## Benign probe
 
 `probe` replaces one parameter at a time with a benign marker such as `z7sf7q`. It normalizes CSRF tokens, UUIDs, hex IDs, timestamps, asset versions, and base64 blobs before diffing. Reflection is a signal, not a vulnerability declaration.
@@ -104,6 +106,10 @@ scopeforge scan https://example.com --scope main --tier all --include-maybe --no
 scopeforge probe "http://localhost:8080/search?q=test" --lab --i-own-this
 scopeforge probe "https://app.example.com/search?q=test" --scope main --marker z7sf7q --max-params 5 --i-own-this
 ```
+
+## Redirect policy
+
+`fetch()` never follows redirects, so a `3xx` is returned as-is. This is deliberate: an HTTP-to-HTTPS redirect can otherwise make every path look like a `maybe`. Use `--allow-redirect` with `scan` or `probe` to follow exactly one hop; the target URL is passed through the same scope guard and budget before another request is sent. A redirect to an out-of-scope host exits with code `2`.
 
 ## Findings and evidence
 

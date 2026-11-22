@@ -2,17 +2,20 @@ from __future__ import annotations
 
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 from dataclasses import dataclass
 from typing import Mapping
 
+from . import __version__
 from .budget import Budget
 from .errors import NetworkError
 from .models import Scope
 from .scope import guard, normalize_token
 
-USER_AGENT = "ScopeForge/0.4 scope-safe-recon"
+USER_AGENT = f"ScopeForge/{__version__} scope-safe-recon"
 ACCEPT = "text/html,application/xhtml+xml,application/json;q=0.9,*/*;q=0.8"
+REDIRECT_CODES = frozenset({301, 302, 303, 307, 308})
 
 
 class _NoRedirect(urllib.request.HTTPRedirectHandler):
@@ -78,8 +81,29 @@ class Session:
     lab: bool = False
     timeout: float = 8.0
     max_bytes: int = 65536
+    allow_redirect: bool = False
+    max_redirects: int = 1
+
+    def __post_init__(self) -> None:
+        self.max_redirects = max(0, min(int(self.max_redirects), 1))
 
     def get(self, url: str) -> Response:
         guard(self.scope, url, self.lab)
+        current = url
+        response = self._fetch_checked(current)
+        hop = 0
+        while (
+            self.allow_redirect
+            and hop < self.max_redirects
+            and response.status in REDIRECT_CODES
+            and response.location
+        ):
+            current = urllib.parse.urljoin(current, response.location)
+            guard(self.scope, current, self.lab)
+            response = self._fetch_checked(current)
+            hop += 1
+        return response
+
+    def _fetch_checked(self, url: str) -> Response:
         self.budget.spend(normalize_token(url))
         return fetch(url, self.timeout, self.max_bytes)

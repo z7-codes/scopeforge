@@ -1,13 +1,25 @@
+import os
+import tempfile
 import unittest
+from unittest.mock import patch
 
 from scopeforge.errors import ScopeError
 from scopeforge.models import Scope
-from scopeforge.scope import guard
+from scopeforge.scope import add_scope, guard, safe_name
 
 SCOPE = Scope(name="t", domains=["example.com", "*.example.org"], exclusions=["staging.example.org"])
 
 
 class GuardTests(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.env = patch.dict(os.environ, {"SCOPEFORGE_HOME": self.tmp.name})
+        self.env.start()
+
+    def tearDown(self):
+        self.env.stop()
+        self.tmp.cleanup()
+
     def test_exact_allowed(self):
         self.assertTrue(guard(SCOPE, "https://example.com/a").allowed)
 
@@ -32,6 +44,13 @@ class GuardTests(unittest.TestCase):
     def test_lab_without_flag_blocked(self):
         with self.assertRaises(ScopeError):
             guard(None, "http://localhost:3000")
+
+    def test_scope_name_sanitized(self):
+        with self.assertRaises(ValueError):
+            add_scope("a/b", ["x.test"])
+        with self.assertRaises(ValueError):
+            add_scope("../evil", ["x.test"])
+        self.assertEqual(safe_name("Acme.Api"), "acme.api")
 
 
 if __name__ == "__main__":

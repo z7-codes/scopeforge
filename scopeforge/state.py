@@ -4,6 +4,7 @@ import hashlib
 import json
 from pathlib import Path
 
+from .scope import safe_name
 from .storage import ensure_data_dir
 
 
@@ -12,9 +13,10 @@ def run_key(*parts: str) -> str:
 
 
 def state_path(scope: str) -> Path:
+    name = safe_name(scope)
     folder = ensure_data_dir() / "state"
     folder.mkdir(parents=True, exist_ok=True)
-    return folder / f"{scope}.jsonl"
+    return folder / f"{name}.jsonl"
 
 
 def load_seen(scope: str) -> set[str]:

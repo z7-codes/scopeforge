@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Any
 
 from .models import Finding
+from .scope import safe_name
 from .storage import ensure_data_dir
 
 
@@ -15,7 +16,8 @@ def folder() -> Path:
 
 
 def path_for(scope: str) -> Path:
-    return folder() / f"{scope}.json"
+    name = safe_name(scope)
+    return folder() / f"{name}.json"
 
 
 def to_record(finding: Finding, note: str = "") -> dict[str, Any]:

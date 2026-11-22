@@ -12,6 +12,7 @@ from .storage import read_json, write_json
 SCOPES_FILE = "scopes.json"
 LABEL = re.compile(r"^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$")
 DOMAIN = re.compile(r"^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$")
+NAME = re.compile(r"^[a-z0-9][a-z0-9._-]{0,63}$")
 LAB_HOSTS = {"localhost", "127.0.0.1", "::1", "0.0.0.0"}
 LAB_SUFFIXES = (".localhost", ".test", ".local", ".internal")
 
@@ -33,6 +34,13 @@ def normalize_token(value: str) -> str:
         return "*." + normalize_token(raw[2:])
     host = raw.split("/")[0].split("?")[0].split("#")[0].split(":")[0]
     return host.lstrip("*.")
+
+
+def safe_name(value: str) -> str:
+    name = str(value).strip().lower()
+    if not NAME.match(name):
+        raise ValueError("scope name must match [a-z0-9._-], 1-64 chars")
+    return name
 
 
 def valid_host(value: str) -> bool:
@@ -119,7 +127,7 @@ def list_scopes() -> list[Scope]:
 
 
 def add_scope(name: str, domains: list[str], exclusions: list[str] | None = None, source: str = "") -> Scope:
-    clean_name = str(name).strip()
+    clean_name = safe_name(name)
     if not clean_name:
         raise ValueError("scope name is required")
     clean_domains = [normalize_token(item) for item in domains if normalize_token(item)]

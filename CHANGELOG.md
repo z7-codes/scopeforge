@@ -14,6 +14,10 @@
 - Rewrote the Markdown report generator to be deterministic, evidence-backed, and draft-only, with a manual reproduction outline, impact template, severity placeholder, and pre-submit checklist.
 - Added `report --scope-source` and updated the README for the v0.4 command surface.
 - Updated the interactive menu, README, and tests for the new safe architecture.
+- Added `safe_name()` validation for scope names and applied it to evidence and resume-state paths to prevent traversal or invalid filenames.
+- Made `__version__` the single source for CLI `--version`, the fixed user agent, and the built distribution version.
+- Added opt-in `--allow-redirect` with a one-hop cap, scope recheck, and budget accounting; the default remains no-follow and is documented.
+- Made resume state skip known paths and parameters before baselining, so a full replay sends zero requests.
 
 ## 0.3.0 — 2026-11-22
 

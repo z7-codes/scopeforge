@@ -9,6 +9,7 @@ from .data import load
 from .dorks import build_plan
 from .models import Scope
 from .net import Session
+from .state import load_seen, remember
 from .validators import resolve
 
 TIER_ORDER = ("high", "medium", "low")
@@ -49,11 +50,16 @@ def run(
     tier: str = "high",
     include_maybe: bool = False,
     chain_git: bool = True,
+    resume: bool = True,
     seen: set[str] | None = None,
 ) -> ScanResult:
-    baseline = soft404.build(session, host)
     queue = load_rules(tier)
     done: set[str] = set(seen or set())
+    if resume and scope_name:
+        done |= load_seen(scope_name)
+    if all(rule.path in done for rule in queue):
+        return ScanResult([], 0, len(queue))
+    baseline = soft404.build(session, host)
     produced: list = []
     sent = 0
     skipped = 0
@@ -67,6 +73,8 @@ def run(
         url = host.rstrip("/") + rule.path
         response = session.get(url)
         sent += 1
+        if resume and scope_name:
+            remember(scope_name, rule.path, "exposure")
         verdict, reason = soft404.classify(
             rule.validator, response.status, response.body, baseline, response.content_type
         )

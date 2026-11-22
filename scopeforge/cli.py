@@ -34,6 +34,7 @@ def _session(scope_name: str | None, lab: bool, args: argparse.Namespace) -> Ses
         lab=lab,
         timeout=config.timeout,
         max_bytes=config.max_bytes,
+        allow_redirect=bool(getattr(args, "allow_redirect", False)),
     )
 
 
@@ -111,6 +112,7 @@ def build_parser() -> argparse.ArgumentParser:
     sca.add_argument("--max-requests", type=int)
     sca.add_argument("--max-per-host", type=int)
     sca.add_argument("--include-maybe", action="store_true")
+    sca.add_argument("--allow-redirect", action="store_true", help="follow at most one in-scope redirect")
     sca.add_argument("--no-resume", action="store_true")
     sca.add_argument("--i-own-this", action="store_true")
 
@@ -123,6 +125,7 @@ def build_parser() -> argparse.ArgumentParser:
     pb.add_argument("--delay", type=float)
     pb.add_argument("--max-requests", type=int)
     pb.add_argument("--max-per-host", type=int)
+    pb.add_argument("--allow-redirect", action="store_true", help="follow at most one in-scope redirect")
     pb.add_argument("--no-resume", action="store_true")
     pb.add_argument("--i-own-this", action="store_true")
 
@@ -237,7 +240,14 @@ def run_command(args: argparse.Namespace) -> str:
         _owned(args)
         session = _session(args.scope, args.lab, args)
         result = run_scan(
-            session, args.scope or "lab", args.host, args.tier, args.include_maybe, True, _resume_seen(args)
+            session,
+            args.scope or "lab",
+            args.host,
+            args.tier,
+            args.include_maybe,
+            True,
+            resume=not args.no_resume,
+            seen=_resume_seen(args),
         )
         return render_scan(result)
 
