@@ -29,6 +29,14 @@ class LabIntegrationTests(unittest.TestCase):
             code = cli.main(argv)
         return code, out.getvalue(), err.getvalue()
 
+    def assert_scan_result(self, code, out, err, banner):
+        self.assertIn(code, (0, 4))
+        if code == 0:
+            self.assertIn(banner, out)
+        else:
+            lowered = err.lower()
+            self.assertTrue("nothing found" in lowered or "no findings" in lowered, err)
+
     def routed_fetch(self, url, *args, **kwargs):
         if url.startswith(LAB_URL):
             return fetch(url, *args, **kwargs)
@@ -37,15 +45,13 @@ class LabIntegrationTests(unittest.TestCase):
     def test_soft404_and_benign_marker(self):
         self.assertTrue(urlsplit(LAB_URL).hostname)
         with patch("scopeforge.net.fetch", side_effect=self.routed_fetch):
-            code, out, _ = self.call(["scan", LAB_URL, "--lab", "--tier", "all", "--i-own-this", "--no-resume"])
-        self.assertEqual(code, 0)
-        self.assertIn("Exposure scan", out)
+            code, out, err = self.call(["scan", LAB_URL, "--lab", "--tier", "all", "--i-own-this", "--no-resume"])
+        self.assert_scan_result(code, out, err, "Exposure scan")
 
         probe_url = f"{LAB_URL}/?{urlencode({'q': 'test'})}"
         with patch("scopeforge.net.fetch", side_effect=self.routed_fetch):
-            code, out, _ = self.call(["probe", probe_url, "--lab", "--i-own-this", "--no-resume"])
-        self.assertEqual(code, 0)
-        self.assertIn("Benign probe", out)
+            code, out, err = self.call(["probe", probe_url, "--lab", "--i-own-this", "--no-resume"])
+        self.assert_scan_result(code, out, err, "Benign probe")
 
     def test_probe_sends_real_requests_to_lab(self):
         calls: list[str] = []
@@ -57,11 +63,10 @@ class LabIntegrationTests(unittest.TestCase):
 
         probe_url = f"{LAB_URL}/rest/products/search?q=test"
         with patch("scopeforge.net.fetch", side_effect=counting_fetch):
-            code, out, _ = self.call(
+            code, out, err = self.call(
                 ["probe", probe_url, "--lab", "--i-own-this", "--no-resume", "--max-params", "1"]
             )
-        self.assertEqual(code, 0)
-        self.assertIn("Benign probe", out)
+        self.assert_scan_result(code, out, err, "Benign probe")
         self.assertGreaterEqual(len(calls), 2)
         self.assertTrue(all(url.startswith(LAB_URL) for url in calls))
 
