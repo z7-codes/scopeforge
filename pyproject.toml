@@ -3,12 +3,12 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "scopeforge-cli"
-description = "Scope-safe recon planning, exposure proof, and evidence triage for bug bounty and labs."
+name = "dorklens-cli"
+description = "Cross-platform advanced dork generator and passive public exposure discovery CLI."
 requires-python = ">=3.10"
 authors = [{ name = "z7-codes" }]
 readme = "README.md"
-keywords = ["bug-bounty", "recon", "google-dorks", "osint", "security", "triage"]
+keywords = ["google-dorks", "osint", "passive-recon", "exposure", "cli", "security"]
 classifiers = [
   "Environment :: Console",
   "Intended Audience :: Information Technology",
@@ -19,16 +19,16 @@ classifiers = [
 dynamic = ["version"]
 
 [project.scripts]
-scopeforge = "scopeforge.cli:main"
+dorklens = "dorklens.cli:main"
 
 [tool.setuptools.dynamic]
-version = { attr = "scopeforge.__version__" }
+version = { attr = "dorklens.__version__" }
 
 [tool.setuptools.packages.find]
-include = ["scopeforge*"]
+include = ["dorklens*"]
 
 [tool.setuptools.package-data]
-scopeforge = ["data/*.json"]
+dorklens = ["data/*.json"]
 
 [tool.ruff]
 line-length = 120

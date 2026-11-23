@@ -1,0 +1,348 @@
+{
+  "version": 1,
+  "categories": {
+    "directory-listing": {
+      "description": "Publicly indexed directory indexes and browseable folders.",
+      "templates": [
+        "site:{domain} intitle:\"Index of /\"",
+        "site:{domain} intitle:\"Index of /admin\"",
+        "site:{domain} intitle:\"Index of /old\"",
+        "site:{domain} intitle:\"Index of /test\"",
+        "site:{domain} intitle:\"Index of /dev\"",
+        "site:{domain} intitle:\"Index of /backup\"",
+        "site:{domain} intitle:\"Index of /uploads\"",
+        "site:{domain} intitle:\"Index of /static\"",
+        "site:{domain} intitle:\"Index of /assets\"",
+        "site:{domain} intitle:\"Index of /private\"",
+        "site:{domain} \"Index of /\" \"Parent Directory\"",
+        "site:{domain} \"Directory listing for /\""
+      ]
+    },
+    "sensitive-files": {
+      "description": "Sensitive filenames that may be publicly indexed.",
+      "templates": [
+        "site:{domain} filetype:env \".env\"",
+        "site:{domain} inurl:/.env",
+        "site:{domain} inurl:/.git/HEAD",
+        "site:{domain} inurl:/.git/config",
+        "site:{domain} inurl:/.svn/entries",
+        "site:{domain} inurl:/.hg/store",
+        "site:{domain} inurl:/.DS_Store",
+        "site:{domain} inurl:/.htaccess",
+        "site:{domain} inurl:/.htpasswd",
+        "site:{domain} filetype:ini inurl:config",
+        "site:{domain} filetype:properties inurl:config",
+        "site:{domain} filetype:yaml inurl:config",
+        "site:{domain} filetype:yml inurl:config",
+        "site:{domain} filetype:toml inurl:config",
+        "site:{domain} inurl:/private inurl:key",
+        "site:{domain} inurl:/id_rsa",
+        "site:{domain} inurl:/credentials",
+        "site:{domain} inurl:/secrets"
+      ]
+    },
+    "backups-archives": {
+      "description": "Indexed backup, archive, and database dump files.",
+      "templates": [
+        "site:{domain} filetype:bak",
+        "site:{domain} filetype:backup",
+        "site:{domain} filetype:old",
+        "site:{domain} filetype:zip inurl:backup",
+        "site:{domain} filetype:rar inurl:backup",
+        "site:{domain} filetype:tar inurl:backup",
+        "site:{domain} filetype:gz inurl:backup",
+        "site:{domain} filetype:sql inurl:dump",
+        "site:{domain} filetype:sql inurl:backup",
+        "site:{domain} filetype:7z inurl:backup",
+        "site:{domain} inurl:/backup/ filetype:zip",
+        "site:{domain} inurl:/old/ filetype:sql",
+        "site:{domain} inurl:/archive/ filetype:tar.gz",
+        "site:{domain} ext:bak ext:old ext:zip"
+      ]
+    },
+    "config-and-secrets": {
+      "description": "Public references to configuration files and secret material.",
+      "templates": [
+        "site:{domain} \"API_KEY\"",
+        "site:{domain} \"SECRET_KEY\"",
+        "site:{domain} \"ACCESS_TOKEN\"",
+        "site:{domain} \"aws_access_key_id\"",
+        "site:{domain} \"secret_access_key\"",
+        "site:{domain} \"database_password\"",
+        "site:{domain} \"DB_PASSWORD\"",
+        "site:{domain} \"private_key\"",
+        "site:{domain} \"BEGIN RSA PRIVATE KEY\"",
+        "site:{domain} \"BEGIN OPENSSH PRIVATE KEY\"",
+        "site:{domain} filetype:env \"KEY\"",
+        "site:{domain} filetype:json inurl:config",
+        "site:{domain} inurl:docker-compose.yml",
+        "site:{domain} inurl:.aws/credentials",
+        "site:{domain} inurl:wp-config.php"
+      ]
+    },
+    "source-control": {
+      "description": "Indexed source-control metadata and repository files.",
+      "templates": [
+        "site:{domain} inurl:/.git/",
+        "site:{domain} intitle:\"Index of /.git\"",
+        "site:{domain} filetype:gitconfig",
+        "site:{domain} inurl:/.gitlab/",
+        "site:{domain} inurl:/.github/",
+        "site:{domain} inurl:/.svn/",
+        "site:{domain} inurl:/.hg/",
+        "site:{domain} inurl:/.idea/",
+        "site:{domain} inurl:/.vscode/",
+        "site:{domain} filetype:gitmodules",
+        "site:{domain} inurl:/bitbucket/",
+        "site:{domain} inurl:/repository/"
+      ]
+    },
+    "logs-and-debug": {
+      "description": "Exposed logs, debug pages, and diagnostic output.",
+      "templates": [
+        "site:{domain} filetype:log",
+        "site:{domain} inurl:/logs/",
+        "site:{domain} inurl:/debug/",
+        "site:{domain} inurl:/trace",
+        "site:{domain} \"PHP Info\"",
+        "site:{domain} intitle:phpinfo",
+        "site:{domain} inurl:/phpinfo.php",
+        "site:{domain} \"Stack trace\"",
+        "site:{domain} \"Fatal error\"",
+        "site:{domain} \"Warning:\" filetype:log",
+        "site:{domain} inurl:/actuator/",
+        "site:{domain} inurl:/metrics"
+      ]
+    },
+    "admin-panels": {
+      "description": "Publicly indexed administration interfaces.",
+      "templates": [
+        "site:{domain} intitle:\"Admin Login\"",
+        "site:{domain} intitle:\"Administration\"",
+        "site:{domain} inurl:/admin",
+        "site:{domain} inurl:/administrator",
+        "site:{domain} inurl:/wp-admin",
+        "site:{domain} inurl:/adminer",
+        "site:{domain} inurl:/phpmyadmin",
+        "site:{domain} inurl:/manager/html",
+        "site:{domain} inurl:/jenkins",
+        "site:{domain} intitle:\"Jenkins Dashboard\"",
+        "site:{domain} intitle:\"Grafana\"",
+        "site:{domain} inurl:/kibana",
+        "site:{domain} inurl:/solr",
+        "site:{domain} inurl:/console"
+      ]
+    },
+    "databases-and-tools": {
+      "description": "Indexed database tools and management interfaces.",
+      "templates": [
+        "site:{domain} intitle:\"phpMyAdmin\"",
+        "site:{domain} intitle:\"Adminer\"",
+        "site:{domain} inurl:/mongo-express",
+        "site:{domain} inurl:/redis-commander",
+        "site:{domain} inurl:/elasticsearch",
+        "site:{domain} inurl:/kibana",
+        "site:{domain} inurl:/mysql",
+        "site:{domain} inurl:/postgres",
+        "site:{domain} inurl:/dbadmin",
+        "site:{domain} inurl:/sql/"
+      ]
+    },
+    "inurl-parameters": {
+      "description": "Indexed URLs with parameters worth manual review.",
+      "templates": [
+        "site:{domain} inurl:?id=",
+        "site:{domain} inurl:?file=",
+        "site:{domain} inurl:?path=",
+        "site:{domain} inurl:?url=",
+        "site:{domain} inurl:?redirect=",
+        "site:{domain} inurl:?next=",
+        "site:{domain} inurl:?target=",
+        "site:{domain} inurl:?page=",
+        "site:{domain} inurl:?doc=",
+        "site:{domain} inurl:?download=",
+        "site:{domain} inurl:?include=",
+        "site:{domain} inurl:?template=",
+        "site:{domain} inurl:?view=",
+        "site:{domain} inurl:?src=",
+        "site:{domain} inurl:?callback=",
+        "site:{domain} inurl:?return=",
+        "site:{domain} inurl:?lang=",
+        "site:{domain} inurl:?q="
+      ]
+    },
+    "apis-and-docs": {
+      "description": "Public API documentation, schemas, and endpoints.",
+      "templates": [
+        "site:{domain} inurl:/api/",
+        "site:{domain} inurl:/api/v1/",
+        "site:{domain} inurl:/swagger",
+        "site:{domain} inurl:/openapi.json",
+        "site:{domain} inurl:/graphql",
+        "site:{domain} \"swagger-ui\"",
+        "site:{domain} \"OpenAPI\"",
+        "site:{domain} filetype:json inurl:api",
+        "site:{domain} filetype:yaml inurl:api",
+        "site:{domain} inurl:/docs/",
+        "site:{domain} inurl:/developer/",
+        "site:{domain} inurl:/webhook"
+      ]
+    },
+    "cloud-storage": {
+      "description": "Publicly indexed storage buckets and cloud-hosted files.",
+      "templates": [
+        "site:{domain} site:s3.amazonaws.com",
+        "site:{domain} site:storage.googleapis.com",
+        "site:{domain} site:blob.core.windows.net",
+        "site:{domain} site:digitaloceanspaces.com",
+        "site:{domain} inurl:s3://",
+        "site:{domain} inurl:storage.googleapis.com",
+        "site:{domain} inurl:.s3.",
+        "site:{domain} \"bucket\" filetype:log",
+        "site:{domain} inurl:/public/"
+      ]
+    },
+    "exposed-documents": {
+      "description": "Indexed documents, sheets, and text files.",
+      "templates": [
+        "site:{domain} filetype:pdf",
+        "site:{domain} filetype:doc",
+        "site:{domain} filetype:docx",
+        "site:{domain} filetype:xls",
+        "site:{domain} filetype:xlsx",
+        "site:{domain} filetype:ppt",
+        "site:{domain} filetype:pptx",
+        "site:{domain} filetype:csv",
+        "site:{domain} filetype:txt",
+        "site:{domain} filetype:md",
+        "site:{domain} filetype:rtf",
+        "site:{domain} filetype:xml",
+        "site:{domain} filetype:ics"
+      ]
+    },
+    "subdomains-and-assets": {
+      "description": "Indexed subdomains and asset hosts.",
+      "templates": [
+        "site:*.{domain}",
+        "site:*.{domain} -www",
+        "site:*.{domain} inurl:dev",
+        "site:*.{domain} inurl:staging",
+        "site:*.{domain} inurl:test",
+        "site:*.{domain} inurl:api",
+        "site:*.{domain} inurl:admin",
+        "site:*.{domain} inurl:cdn",
+        "site:*.{domain} inurl:static",
+        "site:*.{domain} inurl:mail",
+        "site:*.{domain} filetype:pdf",
+        "site:*.{domain} intitle:\"Index of /\""
+      ]
+    },
+    "technology-stack": {
+      "description": "Indexed technology fingerprints and framework signatures.",
+      "templates": [
+        "site:{domain} \"Powered by\"",
+        "site:{domain} \"X-Powered-By\"",
+        "site:{domain} \"Django\"",
+        "site:{domain} \"Laravel\"",
+        "site:{domain} \"Express\"",
+        "site:{domain} \"nginx\"",
+        "site:{domain} \"Apache\"",
+        "site:{domain} \"ASP.NET\"",
+        "site:{domain} \"React\"",
+        "site:{domain} \"Vue\"",
+        "site:{domain} \"WordPress\"",
+        "site:{domain} \"Shopify\"",
+        "site:{domain} \"Cloudflare\""
+      ]
+    },
+    "error-messages": {
+      "description": "Publicly indexed error pages and diagnostic text.",
+      "templates": [
+        "site:{domain} \"SQL syntax\"",
+        "site:{domain} \"mysql_fetch_array\"",
+        "site:{domain} \"ORA-01756\"",
+        "site:{domain} \"Warning: mysql\"",
+        "site:{domain} \"Fatal error: Uncaught\"",
+        "site:{domain} \"java.lang.Exception\"",
+        "site:{domain} \"Traceback (most recent call last)\"",
+        "site:{domain} \"Internal Server Error\"",
+        "site:{domain} \"Access denied for user\"",
+        "site:{domain} \"Database connection failed\""
+      ]
+    },
+    "development-environments": {
+      "description": "Indexed non-production hosts and paths.",
+      "templates": [
+        "site:{domain} inurl:/dev/",
+        "site:{domain} inurl:/test/",
+        "site:{domain} inurl:/staging/",
+        "site:{domain} inurl:/sandbox/",
+        "site:{domain} inurl:/demo/",
+        "site:{domain} inurl:/internal/",
+        "site:{domain} inurl:/beta/",
+        "site:{domain} inurl:/preview/",
+        "site:{domain} intitle:\"Development Environment\"",
+        "site:{domain} \"staging\" \"password\""
+      ]
+    },
+    "cms-and-frameworks": {
+      "description": "Public CMS and framework artifacts.",
+      "templates": [
+        "site:{domain} inurl:/wp-content/",
+        "site:{domain} inurl:/wp-includes/",
+        "site:{domain} inurl:/xmlrpc.php",
+        "site:{domain} inurl:/wp-config.php",
+        "site:{domain} \"wp-json\"",
+        "site:{domain} inurl:/joomla/",
+        "site:{domain} inurl:/drupal/",
+        "site:{domain} inurl:/sites/default/files/",
+        "site:{domain} inurl:/magento/",
+        "site:{domain} inurl:/laravel/"
+      ]
+    },
+    "public-mentions": {
+      "description": "Third-party pages that mention the target domain.",
+      "templates": [
+        "\"{domain}\" site:pastebin.com",
+        "\"{domain}\" site:gist.github.com",
+        "\"{domain}\" site:github.com",
+        "\"{domain}\" site:gitlab.com",
+        "\"{domain}\" site:stackoverflow.com",
+        "\"{domain}\" site:reddit.com",
+        "\"{domain}\" \"api_key\"",
+        "\"{domain}\" \"password\"",
+        "\"{domain}\" \"secret\"",
+        "\"{domain}\" \"token\""
+      ]
+    },
+    "authentication-pages": {
+      "description": "Indexed login and authentication surfaces.",
+      "templates": [
+        "site:{domain} intitle:\"Login\"",
+        "site:{domain} intitle:\"Sign in\"",
+        "site:{domain} inurl:/login",
+        "site:{domain} inurl:/signin",
+        "site:{domain} inurl:/auth/",
+        "site:{domain} inurl:/sso",
+        "site:{domain} inurl:/oauth/",
+        "site:{domain} inurl:/reset-password",
+        "site:{domain} inurl:/forgot-password",
+        "site:{domain} inurl:/register"
+      ]
+    },
+    "security-files": {
+      "description": "Public security, policy, and discovery files.",
+      "templates": [
+        "site:{domain} inurl:/robots.txt",
+        "site:{domain} inurl:/sitemap.xml",
+        "site:{domain} inurl:/security.txt",
+        "site:{domain} inurl:/.well-known/",
+        "site:{domain} filetype:txt inurl:security",
+        "site:{domain} inurl:/ads.txt",
+        "site:{domain} inurl:/humans.txt",
+        "site:{domain} inurl:/crossdomain.xml",
+        "site:{domain} inurl:/clientaccesspolicy.xml"
+      ]
+    }
+  }
+}

@@ -1,211 +1,124 @@
-# ScopeForge
+# DorkLens
 
 [![CI](https://github.com/z7-codes/scopeforge/actions/workflows/ci.yml/badge.svg)](https://github.com/z7-codes/scopeforge/actions/workflows/ci.yml)
 
-> PyPI pe naam `scopeforge` kisi aur project ka hai. Isliye package `scopeforge-cli` hai, command `scopeforge`.
-> `pip install scopeforge-cli`
+> DorkLens is the rebuilt, focused CLI for advanced dork planning and passive public exposure discovery.
+> It replaces the older menu-heavy ScopeForge experience.
 
-ScopeForge is a cross-platform command-line tool
- for scope-safe recon, manual proof collection, and report drafting. It is the companion tool to [Advanced Google Dorks](https://github.com/z7-codes/advanced-google-dorks).
+DorkLens takes one input — a domain such as `example.com` — and generates a professional, category-based advanced dork plan for that target. It can then run those dorks through passive search providers, collect public results, and produce a clean Markdown report.
 
-It does **not** scan arbitrary domains, fire attack payloads, exploit findings, extract data, bypass WAFs, or declare vulnerabilities automatically. Every engine stops at a signal plus a copy-pasteable request; the operator confirms impact.
-
-## v0.4 safety model
-
-- One network choke point: `scopeforge.net.Session.get()` runs `guard()` -> `budget.spend()` -> `fetch()`.
-- Written scope plus exclusions are mandatory for non-lab targets. Lab hosts need `--lab`.
-- `--i-own-this` is mandatory for `scan` and `probe`.
-- Redirects are not followed by default; `--allow-redirect` follows at most one hop and rechecks scope. 8-second timeout, 64 KB body cap, fixed `ScopeForge/0.4` user agent.
-- Global and per-host budgets, typed exit codes, resume state, and redacted evidence.
-- `search` is passive only. It never feeds `scan` or `probe` automatically.
-- The payload catalog is marker-only. There is no SQLi/XSS/traversal/redirect/SSTI/CRLF ladder and no `inject` command.
-
-## What it does
-
-- Validates written scopes with wildcard and exclusion support.
-- Generates scoped dork queries from JSON-backed templates.
-- Runs passive dork searches through DDG, Google CSE, Brave, or a local URL file.
-- Stores leads in a local ledger.
-- Runs structural exposure checks with soft-404 suppression and validator-based proof.
-- Sends benign markers to parameters on owned/lab/in-scope URLs and diffs normalized responses.
-- Stores findings locally, supports confirm/false-positive/skip, and writes evidence JSON.
-- Scores evidence that you record from authorized work, labs, or CTFs.
-- Renders a Markdown evidence report draft.
-- Provides guided lab scenarios for localhost, DVWA, Juice Shop, and CTF targets.
+DorkLens is passive. It does not send requests to the target domain, does not fire exploit payloads, does not scrape `google.com`, and does not declare that a target is vulnerable. It reports public exposure signals that a human must verify and triage.
 
 ## Install
 
 ```bash
 python -m pip install git+https://github.com/z7-codes/scopeforge.git
-scopeforge --version
+dorklens --version
 ```
 
 Local development:
 
 ```bash
 python -m pip install -e .
+python -m dorklens example.com
 ```
 
-Works on Windows, Linux, Arch, and macOS with Python 3.10 or newer. No backend, no cloud dependency. Optional search providers use `SCOPEFORGE_CSE_KEY`, `SCOPEFORGE_CSE_CX`, or `SCOPEFORGE_BRAVE_KEY`. Keys stay in environment variables, but the Google CSE key is placed in the request URL and may appear in proxy, shell, or debug logs; treat logs as sensitive.
+If the `dorklens` executable is not on your PATH, use `python -m dorklens` instead.
 
-## Interactive console
-
-```bash
-scopeforge
-scopeforge interactive
-```
-
-Current menu:
-
-```text
-[1] Scope management
-[2] Dork plan
-[3] Passive search
-[4] Exposure worksheet
-[5] Exposure scan
-[6] Benign param probe
-[7] Findings
-[8] Verify finding
-[9] Config
-[0] Exit
-```
+Works on Windows, Linux, and macOS with Python 3.10 or newer.
 
 ## Quick start
 
-```bash
-scopeforge scope add main --domain example.com --domain "*.example.org" --exclude staging.example.org --source "program-policy-2026-11-22"
-scopeforge plan main --category recon --limit 20 --format md > recon-plan.md
-scopeforge search main --category exposure --provider ddg --limit 10 --output leads.txt
-scopeforge exposure example.com --scope main --source "program-policy-2026-11-22" --output exposure.md
-scopeforge scan https://example.com --scope main --tier high --i-own-this
-scopeforge probe "https://example.com/search?q=test" --scope main --i-own-this
-scopeforge findings list --scope main
-scopeforge verify <finding-id>
-scopeforge lab localhost
-```
-
-For local lab work:
+Generate every dork for a domain:
 
 ```bash
-scopeforge scan http://localhost:3000 --lab --i-own-this
-scopeforge probe "http://localhost:3000/search?q=test" --lab --i-own-this
+dorklens example.com
 ```
 
-## Exposure scan
-
-`scan` checks a fixed set of JSON-backed paths. A path is reported only when a structural validator matches, or when you explicitly ask for `--include-maybe`. Soft-404 bodies are baselined first. `.git/HEAD` can chain to other `.git` checks only after a non-absent result.
+Generate a specific category:
 
 ```bash
-scopeforge scan https://example.com --scope main --tier high --i-own-this
-scopeforge scan https://example.com --scope main --tier all --include-maybe --no-resume --i-own-this
+dorklens dorks example.com --category directory-listing
 ```
 
-Attempted paths and parameters are recorded per scope. A full replay skips every known item before baselining, so it sends zero requests; `--no-resume` ignores that state.
-
-## Benign probe
-
-`probe` replaces one parameter at a time with a benign marker such as `z7sf7q`. It normalizes CSRF tokens, UUIDs, hex IDs, timestamps, asset versions, and base64 blobs before diffing. Reflection is a signal, not a vulnerability declaration.
+List all categories:
 
 ```bash
-scopeforge probe "http://localhost:8080/search?q=test" --lab --i-own-this
-scopeforge probe "https://app.example.com/search?q=test" --scope main --marker z7sf7q --max-params 5 --i-own-this
+dorklens categories
 ```
 
-`scan` and `probe` accept `--header 'Name: value'`, `--cookie`, and `--ua` to override request headers. `--ua` wins over a `User-Agent` set through `--header`.
-
-## Redirect policy
-
-`fetch()` never follows redirects, so a `3xx` is returned as-is. This is deliberate: an HTTP-to-HTTPS redirect can otherwise make every path look like a `maybe`. Use `--allow-redirect` with `scan` or `probe` to follow exactly one hop; the target URL is passed through the same scope guard and budget before another request is sent. A redirect to an out-of-scope host exits with code `2`.
-
-## Findings and evidence
+Export a dork plan:
 
 ```bash
-scopeforge findings list --scope main --min-confidence medium
-scopeforge findings list --format json > findings.json
-scopeforge verify <finding-id> --status confirmed --note "manually reviewed in scope"
-scopeforge analyze ~/.scopeforge/evidence --format json --output analysis.json
-scopeforge report analysis.json --scope main --scope-source "program-policy-2026-11-22" --output report.md
+dorklens dorks example.com --format md --output dork-plan.md
+dorklens dorks example.com --format json --output dork-plan.json
 ```
 
-`verify` writes a redacted evidence record under `~/.scopeforge/evidence/<scope>.json`. Only operator-confirmed findings become evidence records.
+Run passive searches and save results:
 
-The report is deterministic and draft-only. Confirmed records get a manual reproduction outline, impact template, and severity placeholder; unconfirmed records stay in a validation table. The draft always includes a pre-submit checklist for scope source, Known Issues, duplicates, redaction, impact, evidence path, and official channel.
+```bash
+dorklens search example.com --output results.json --format json
+dorklens report results.json --output exposure-report.md
+```
 
-Status values from the analyzer:
+Import URLs you collected manually:
 
-- `blocked`: authorization was not recorded.
-- `needs-validation`: evidence is incomplete.
-- `likely`: a meaningful signal was recorded.
-- `evidence-confirmed`: manual confirmation and an evidence summary exist.
+```bash
+dorklens search example.com --provider file --input urls.txt --format md
+```
 
 ## Search providers
 
-```bash
-scopeforge search main --category exposure --provider ddg
-scopeforge search main --category xss --provider google_cse
-scopeforge search main --category recon --provider brave
-scopeforge search main --provider file --input urls.txt
-```
+- `auto`: tries configured Google CSE, then Brave, then DuckDuckGo HTML.
+- `google_cse`: uses the official Custom Search API. Set `DORKLENS_CSE_KEY` and `DORKLENS_CSE_CX`.
+- `brave`: uses the Brave Search API. Set `DORKLENS_BRAVE_KEY`.
+- `ddg`: passive DuckDuckGo HTML results. No key required.
+- `file`: imports URLs from a local text file. No network request.
 
-`file` skips blank lines and `#` comments. `auto` tries Google CSE, Brave, then DDG. Results are exported for manual review only.
+Provider names are intentionally hidden from the report unless a provider fails. DorkLens never scrapes `google.com` directly.
 
-## Config and state
+## Output safety language
 
-```bash
-scopeforge config
-scopeforge config delay 0.4
-scopeforge config max_requests 300
-scopeforge evidence-dir
-scopeforge state clear main
-```
+DorkLens labels results as signals, for example:
 
-Defaults:
+- `High-priority exposure signal`
+- `Directory exposure signal`
+- `Administrative surface signal`
+- `Development surface signal`
+- `Parameter surface signal`
+- `Public information signal`
 
-```json
-{
-  "delay": 0.4,
-  "max_requests": 300,
-  "max_per_host": 120,
-  "max_urls": 25,
-  "max_params": 5,
-  "max_queries": 40,
-  "timeout": 8.0,
-  "max_bytes": 65536,
-  "provider": "auto",
-  "lab_suffixes": [".localhost", ".test"]
-}
-```
+Every result includes `Manual verification required.` DorkLens does not output automatic vulnerability verdicts.
 
-Exit codes:
+## Example dork categories
+
+- `directory-listing`
+- `sensitive-files`
+- `backups-archives`
+- `config-and-secrets`
+- `source-control`
+- `logs-and-debug`
+- `admin-panels`
+- `inurl-parameters`
+- `apis-and-docs`
+- `cloud-storage`
+- `subdomains-and-assets`
+- `public-mentions`
+
+Run `dorklens categories` for the full list.
+
+## Example output
 
 ```text
-0  success
-2  input/scope/usage error
-3  budget exhausted
-4  nothing found
-130 interrupted
+site:example.com intitle:"Index of /admin"
+site:example.com intitle:"Index of /old"
+site:example.com intitle:"Index of /test"
+site:example.com intitle:"Index of /dev"
+site:example.com intitle:"Index of /backup"
 ```
 
-## Data location
+## Scope of behavior
 
-Local data is stored under `~/.scopeforge` by default. Set `SCOPEFORGE_HOME` to use another directory. Bundled catalogs live in `scopeforge/data/`: `paths.json`, `dorks.json`, and marker-only `payloads.json`.
+DorkLens performs passive search-provider requests only. It does not request the target domain, crawl the target domain, scan ports, submit payloads, or upload data. Reports and result files stay local.
 
-## Tests
-
-```bash
-python -m unittest discover -s tests -v
-python -m compileall -q scopeforge tests
-git diff --check
-```
-
-## Roadmap
-
-- Local browser UI with FastAPI and static HTML.
-- PyInstaller binaries for Windows and Linux.
-- Arch `PKGBUILD` and AUR packaging.
-- Import adapters for Burp, ZAP, and Nuclei evidence exports.
-- Dedupe and Known Issues note importer.
-
-## Related
-
-- [Advanced Google Dorks](https://github.com/z7-codes/advanced-google-dorks) — scope-safe dork library, operator-free discovery guide, and vulnerability fundamentals.
+Use it only for domains and programs you are permitted to assess. Follow the target's disclosure policy and verify every signal manually before reporting anything.

@@ -30,11 +30,13 @@ jobs:
       - name: Types
         run: |
           python -m pip install mypy
-          mypy scopeforge --ignore-missing-imports --check-untyped-defs
+          mypy dorklens --ignore-missing-imports --check-untyped-defs
+      - name: Compile
+        run: python -m compileall -q dorklens
       - name: Test
         run: python -m unittest discover -s tests -v
       - name: Smoke check
-        run: python -m scopeforge --version
+        run: python -m dorklens --version
 
   arch:
     name: tests / archlinux
@@ -46,38 +48,9 @@ jobs:
       - uses: actions/checkout@v4
       - name: Install package
         run: python -m pip install --break-system-packages -e .
+      - name: Compile
+        run: python -m compileall -q dorklens
       - name: Test
         run: python -m unittest discover -s tests -v
       - name: Smoke check
-        run: python -m scopeforge --version
-
-  lab:
-    name: lab / juice-shop
-    runs-on: ubuntu-latest
-    services:
-      juice:
-        image: bkimminich/juice-shop
-        ports: ["3000:3000"]
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with: {python-version: "3.13"}
-      - run: python -m pip install -e .
-      - name: Wait for lab
-        run: |
-          python - <<'PY'
-          import time
-          import urllib.request
-          for _ in range(60):
-              try:
-                  urllib.request.urlopen("http://localhost:3000/", timeout=2).read(1)
-                  break
-              except Exception:
-                  time.sleep(2)
-          else:
-              raise SystemExit("lab did not become ready")
-          PY
-      - name: Integration
-        env:
-          SF_LAB_URL: http://localhost:3000
-        run: python -m unittest tests.test_lab_integration -v
+        run: python -m dorklens --version
