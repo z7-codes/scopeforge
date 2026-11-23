@@ -79,7 +79,8 @@ class ExposureEngineTests(unittest.TestCase):
             if path == "/.git/HEAD":
                 return Response(url, 200, {"Content-Type": "text/plain"}, b"ref: refs/heads/main\n", 0.01)
             if path == "/.git/config":
-                return Response(url, 200, {"Content-Type": "text/plain"}, b"[core]\nrepositoryformatversion = 0\n", 0.01)
+                body = b"[core]\nrepositoryformatversion = 0\n"
+                return Response(url, 200, {"Content-Type": "text/plain"}, body, 0.01)
             return fake_fetch(url, *args, **kwargs)
 
         def tracking(url, *args, **kwargs):

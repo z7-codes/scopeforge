@@ -131,10 +131,17 @@ def run(
 def render(result: ProbeResult) -> str:
     lines = [f"Benign probe - {result.sent} requests, {result.skipped} skipped, {len(result.findings)} finding(s)", ""]
     if not result.findings:
-        lines.extend(["No benign marker reflection recorded.", "", "Reflection is a signal, not a vulnerability declaration."])
+        lines.extend(
+            [
+                "No benign marker reflection recorded.",
+                "",
+                "Reflection is a signal, not a vulnerability declaration.",
+            ]
+        )
         return "\n".join(lines)
     lines.extend(
-        f"{item.id}  {item.confidence:<6}  {item.url}?{item.parameter}  [{item.context or 'delta-only'}]" for item in result.findings
+        f"{item.id}  {item.confidence:<6}  {item.url}?{item.parameter}  [{item.context or 'delta-only'}]"
+        for item in result.findings
     )
     lines.extend(["", "Reflection is a signal, not a vulnerability declaration.", "Next: scopeforge verify <id>"])
     return "\n".join(lines)

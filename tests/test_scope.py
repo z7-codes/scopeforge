@@ -5,7 +5,7 @@ from unittest.mock import patch
 
 from scopeforge.errors import ScopeError
 from scopeforge.models import Scope
-from scopeforge.scope import add_scope, guard, safe_name
+from scopeforge.scope import add_scope, guard, is_lab_host, normalize_token, safe_name
 
 SCOPE = Scope(name="t", domains=["example.com", "*.example.org"], exclusions=["staging.example.org"])
 
@@ -51,6 +51,28 @@ class GuardTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             add_scope("../evil", ["x.test"])
         self.assertEqual(safe_name("Acme.Api"), "acme.api")
+
+    def test_ipv6_and_port_normalized(self):
+        self.assertEqual(normalize_token("[::1]:8080"), "::1")
+        self.assertEqual(normalize_token("https://u:p@h.test:8443/x"), "h.test")
+
+    def test_userinfo_url_allowed(self):
+        scope = Scope(name="t", domains=["h.test"])
+        self.assertTrue(guard(scope, "https://u:p@h.test:8443/x").allowed)
+
+    def test_cidr_scope(self):
+        scope = Scope(name="net", domains=["10.0.0.0/24"])
+        self.assertTrue(guard(scope, "http://10.0.0.7/").allowed)
+        with self.assertRaises(ScopeError):
+            guard(scope, "http://10.0.1.7/")
+
+    def test_add_scope_preserves_cidr(self):
+        scope = add_scope("net", ["10.0.0.0/24"])
+        self.assertEqual(scope.domains, ["10.0.0.0/24"])
+
+    def test_lab_suffix_defaults(self):
+        self.assertTrue(is_lab_host("app.test"))
+        self.assertFalse(is_lab_host("printer.local"))
 
 
 if __name__ == "__main__":

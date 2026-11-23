@@ -46,7 +46,14 @@ def render_plan(records: list[dict], fmt: str = "text") -> str:
     if fmt == "json":
         return json.dumps(records, indent=2)
     if fmt == "md":
-        lines = ["# ScopeForge Dork Plan", "", f"Queries: {len(records)}", "", "| ID | Category | Query |", "|---|---|---|"]
+        lines = [
+            "# ScopeForge Dork Plan",
+            "",
+            f"Queries: {len(records)}",
+            "",
+            "| ID | Category | Query |",
+            "|---|---|---|",
+        ]
         lines.extend(f"| {item['id']} | {item['category']} | `{item['query']}` |" for item in records)
         lines.extend(["", f"Safety: {SAFETY}"])
         return "\n".join(lines)

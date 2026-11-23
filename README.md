@@ -46,7 +46,7 @@ Local development:
 python -m pip install -e .
 ```
 
-Works on Windows, Linux, Arch, and macOS with Python 3.10 or newer. No backend, no cloud dependency. Optional search providers use `SCOPEFORGE_CSE_KEY`, `SCOPEFORGE_CSE_CX`, or `SCOPEFORGE_BRAVE_KEY`.
+Works on Windows, Linux, Arch, and macOS with Python 3.10 or newer. No backend, no cloud dependency. Optional search providers use `SCOPEFORGE_CSE_KEY`, `SCOPEFORGE_CSE_CX`, or `SCOPEFORGE_BRAVE_KEY`. Keys stay in environment variables, but the Google CSE key is placed in the request URL and may appear in proxy, shell, or debug logs; treat logs as sensitive.
 
 ## Interactive console
 
@@ -111,6 +111,8 @@ scopeforge probe "http://localhost:8080/search?q=test" --lab --i-own-this
 scopeforge probe "https://app.example.com/search?q=test" --scope main --marker z7sf7q --max-params 5 --i-own-this
 ```
 
+`scan` and `probe` accept `--header 'Name: value'`, `--cookie`, and `--ua` to override request headers. `--ua` wins over a `User-Agent` set through `--header`.
+
 ## Redirect policy
 
 `fetch()` never follows redirects, so a `3xx` is returned as-is. This is deliberate: an HTTP-to-HTTPS redirect can otherwise make every path look like a `maybe`. Use `--allow-redirect` with `scan` or `probe` to follow exactly one hop; the target URL is passed through the same scope guard and budget before another request is sent. A redirect to an out-of-scope host exits with code `2`.
@@ -169,7 +171,8 @@ Defaults:
   "max_queries": 40,
   "timeout": 8.0,
   "max_bytes": 65536,
-  "provider": "auto"
+  "provider": "auto",
+  "lab_suffixes": [".localhost", ".test"]
 }
 ```
 

@@ -44,6 +44,14 @@ class CliTests(unittest.TestCase):
             parse_headers(["X-Test: 1"], "a=b"),
             {"X-Test": "1", "Cookie": "a=b"},
         )
+        self.assertEqual(
+            parse_headers(["User-Agent: from-header"], "", "from-ua"),
+            {"User-Agent": "from-ua"},
+        )
+        self.assertEqual(
+            parse_headers(["user-agent: lower", "accept: text/plain"]),
+            {"User-Agent": "lower", "Accept": "text/plain"},
+        )
         with self.assertRaises(UsageError):
             parse_headers(["bogus"])
 

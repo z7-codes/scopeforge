@@ -2,19 +2,19 @@ from __future__ import annotations
 
 import json
 import re
-from typing import Callable
+from collections.abc import Callable
 
 from .errors import DataError
 
 Validator = Callable[[bytes, str], bool]
 
 
-def _json(body: bytes) -> dict | None:
+def _json(body: bytes) -> dict:
     try:
         value = json.loads(body[:20000].decode("utf-8", "replace"))
     except (ValueError, UnicodeDecodeError):
-        return None
-    return value if isinstance(value, dict) else None
+        return {}
+    return value if isinstance(value, dict) else {}
 
 
 def _has(pattern: bytes, body: bytes, minimum: int = 1) -> bool:

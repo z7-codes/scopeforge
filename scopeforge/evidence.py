@@ -6,7 +6,7 @@ from typing import Any
 
 from .models import Finding
 from .scope import safe_name
-from .storage import ensure_data_dir
+from .storage import ensure_data_dir, transaction
 
 
 def folder() -> Path:
@@ -41,15 +41,16 @@ def to_record(finding: Finding, note: str = "") -> dict[str, Any]:
 
 def write(finding: Finding, note: str = "") -> Path:
     path = path_for(finding.scope)
-    existing: list[Any] = []
-    if path.exists():
-        try:
-            loaded = json.loads(path.read_text(encoding="utf-8"))
-            existing = loaded if isinstance(loaded, list) else []
-        except json.JSONDecodeError:
-            existing = []
-    record = to_record(finding, note)
-    existing = [item for item in existing if not (isinstance(item, dict) and item.get("id") == record["id"])]
-    existing.append(record)
-    path.write_text(json.dumps(existing, indent=2), encoding="utf-8")
+    with transaction(path.name):
+        existing: list[Any] = []
+        if path.exists():
+            try:
+                loaded = json.loads(path.read_text(encoding="utf-8"))
+                existing = loaded if isinstance(loaded, list) else []
+            except json.JSONDecodeError:
+                existing = []
+        record = to_record(finding, note)
+        existing = [item for item in existing if not (isinstance(item, dict) and item.get("id") == record["id"])]
+        existing.append(record)
+        path.write_text(json.dumps(existing, indent=2), encoding="utf-8")
     return path

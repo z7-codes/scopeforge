@@ -56,6 +56,13 @@ class AnalyzerTests(unittest.TestCase):
         self.assertIn("email=[redacted]", value)
         self.assertIn("token=[redacted]", value)
 
+    def test_secret_keys_are_redacted_by_name(self):
+        value = redact('SECRET_KEY=abc123\n  "API_TOKEN": "shh"\nDB_PASSWORD: hunter2\n')
+        self.assertNotIn("abc123", value)
+        self.assertNotIn("shh", value)
+        self.assertNotIn("hunter2", value)
+        self.assertIn("SECRET_KEY=[redacted]", value)
+
     def test_render(self):
         results = analyze_records([{"category": "recon", "authorized": True, "surface": "docs"}])
         self.assertIn("ScopeForge analysis", render_analysis(results))

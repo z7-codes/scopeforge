@@ -38,7 +38,8 @@ def render(finding: Finding) -> str:
         )
     if finding.excerpt:
         lines.append(f"proof    {finding.excerpt}")
-    lines.extend(["", build_curl(finding), "", HINTS.get(finding.category, "manually confirm karo, ek line impact likho"), ""])
+    hint = HINTS.get(finding.category, "manually confirm karo, ek line impact likho")
+    lines.extend(["", build_curl(finding), "", hint, ""])
     lines.append("[c]onfirmed  [f]alse-positive  [s]kip  [q]uit")
     return "\n".join(lines)
 

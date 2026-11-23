@@ -13,7 +13,7 @@ from scopeforge.net import Session
 
 class EchoHandler(BaseHTTPRequestHandler):
     def do_GET(self):
-        body = f"<html><body><div>{self.path}</div></body></html>".encode("utf-8")
+        body = f"<html><body><div>{self.path}</div></body></html>".encode()
         self.send_response(200)
         self.send_header("Content-Type", "text/html")
         self.send_header("Content-Length", str(len(body)))
