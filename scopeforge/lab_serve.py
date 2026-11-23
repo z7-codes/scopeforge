@@ -22,7 +22,7 @@ def _page(title: str, body: str) -> bytes:
 
 
 class LabHandler(BaseHTTPRequestHandler):
-    server_version = "ScopeForgeLab/0.4"
+    server_version = "ScopeForgeLab/0.5"
 
     def log_message(self, format: str, *args: object) -> None:
         return
