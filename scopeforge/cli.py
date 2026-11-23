@@ -3,22 +3,29 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+import time
+from collections.abc import Sequence
 from pathlib import Path
-from typing import Any, Sequence
+from typing import Any
 
 from . import __version__, findings, probe, search, verify
 from .analyzer import analyze_records, render_analysis
 from .budget import Budget
 from .config import load_config, set_value
 from .dorks import CATEGORIES, build_plan, render_plan
-from .errors import ScopeForgeError, UsageError
+from .errors import ScopeForgeError, SearchError, UsageError
 from .evidence import folder as evidence_folder
-from .exposure import build_worksheet, render as render_scan, run as run_scan
+from .exposure import build_worksheet
+from .exposure import render as render_scan
+from .exposure import run as run_scan
 from .ledger import add_lead, list_leads, render_leads
 from .net import Session
 from .report import render_report
 from .scope import add_scope, get_scope, list_scopes, remove_scope
-from .state import clear as clear_state, load_seen
+from .state import clear as clear_state
+from .state import load_seen
+
+CANONICAL_HEADERS = {"user-agent": "User-Agent", "accept": "Accept", "cookie": "Cookie"}
 
 
 def _session(scope_name: str | None, lab: bool, args: argparse.Namespace) -> Session:
@@ -34,20 +41,23 @@ def _session(scope_name: str | None, lab: bool, args: argparse.Namespace) -> Ses
         lab=lab,
         timeout=config.timeout,
         max_bytes=config.max_bytes,
-        headers=parse_headers(getattr(args, "header", None), getattr(args, "cookie", "")),
+        headers=parse_headers(getattr(args, "header", None), getattr(args, "cookie", ""), getattr(args, "ua", "")),
         allow_redirect=bool(getattr(args, "allow_redirect", False)),
     )
 
 
-def parse_headers(pairs: list[str] | None, cookie: str = "") -> dict[str, str]:
+def parse_headers(pairs: list[str] | None, cookie: str = "", user_agent: str = "") -> dict[str, str]:
     headers: dict[str, str] = {}
     for raw in pairs or []:
         if ":" not in raw:
             raise UsageError("header must look like 'Name: value': " + raw)
         key, _, value = raw.partition(":")
-        headers[key.strip()] = value.strip()
+        key = key.strip()
+        headers[CANONICAL_HEADERS.get(key.lower(), key)] = value.strip()
     if cookie:
         headers["Cookie"] = cookie.strip()
+    if user_agent:
+        headers["User-Agent"] = user_agent.strip()
     return headers
 
 
@@ -128,6 +138,7 @@ def build_parser() -> argparse.ArgumentParser:
     sca.add_argument("--allow-redirect", action="store_true", help="follow at most one in-scope redirect")
     sca.add_argument("--header", action="append", default=[], help="extra request header 'Name: value'")
     sca.add_argument("--cookie", default="", help="Cookie header value")
+    sca.add_argument("--ua", default="", help="override User-Agent header")
     sca.add_argument("--no-resume", action="store_true")
     sca.add_argument("--i-own-this", action="store_true")
 
@@ -143,6 +154,7 @@ def build_parser() -> argparse.ArgumentParser:
     pb.add_argument("--allow-redirect", action="store_true", help="follow at most one in-scope redirect")
     pb.add_argument("--header", action="append", default=[], help="extra request header 'Name: value'")
     pb.add_argument("--cookie", default="", help="Cookie header value")
+    pb.add_argument("--ua", default="", help="override User-Agent header")
     pb.add_argument("--no-resume", action="store_true")
     pb.add_argument("--i-own-this", action="store_true")
 
@@ -152,6 +164,7 @@ def build_parser() -> argparse.ArgumentParser:
     fdl.add_argument("--scope")
     fdl.add_argument("--status", choices=findings.STATUSES)
     fdl.add_argument("--min-confidence", choices=findings.CONFIDENCE, default="low")
+    fdl.add_argument("--devil", action="store_true", help="sort by signal length")
     fdl.add_argument("--format", choices=("text", "json"), default="text")
 
     vf = sub.add_parser("verify", help="confirm or reject a finding")
@@ -216,7 +229,8 @@ def run_command(args: argparse.Namespace) -> str:
             return f"scope saved: {item.name} | {', '.join(item.domains)}"
         if args.scope_command == "list":
             items = list_scopes()
-            return "\n".join(f"{i.name}: {', '.join(i.domains)} | source={i.source or '-'}" for i in items) or "No scopes saved."
+            lines = [f"{i.name}: {', '.join(i.domains)} | source={i.source or '-'}" for i in items]
+            return "\n".join(lines) or "No scopes saved."
         if args.scope_command == "show":
             return json.dumps(get_scope(args.name).to_dict(), indent=2)
         remove_scope(args.name)
@@ -227,26 +241,36 @@ def run_command(args: argparse.Namespace) -> str:
 
     if args.command == "search":
         scope = get_scope(args.scope)
-        limit = args.max_queries or load_config().max_queries
+        config = load_config()
+        limit = args.max_queries or config.max_queries
         records = build_plan(scope, args.category, limit)
         if args.provider == "file":
-            if not args.input:
-                raise UsageError("file provider needs --input")
-            urls = search.from_file(args.input, args.limit)
+            urls = search.search("", "file", args.limit, args.input)
         else:
             urls = []
-            for record in records:
-                for url in search.search(record["query"], args.provider, args.limit):
+            failures = 0
+            for index, record in enumerate(records):
+                if index and config.delay:
+                    time.sleep(config.delay)
+                try:
+                    found = search.search(record["query"], args.provider, args.limit)
+                except ScopeForgeError as exc:
+                    failures += 1
+                    print(f"warn: {record['query']} -> {exc}", file=sys.stderr)
+                    continue
+                for url in found:
                     if url not in urls:
                         urls.append(url)
+            if failures == len(records):
+                raise SearchError(f"every query failed ({failures})")
         if args.format == "json":
             return json.dumps({"queries": [r["query"] for r in records], "urls": urls}, indent=2)
         return _write("\n".join(urls) or "no results", args.output)
 
     if args.command == "lead":
         if args.lead_command == "add":
-            item = add_lead(args.scope, args.source, args.candidate, args.category, args.note)
-            return f"lead added: {item.id} | {item.scope} | {item.candidate}"
+            lead = add_lead(args.scope, args.source, args.candidate, args.category, args.note)
+            return f"lead added: {lead.id} | {lead.scope} | {lead.candidate}"
         return render_leads(list_leads(args.scope), args.format)
 
     if args.command == "exposure":
@@ -272,7 +296,7 @@ def run_command(args: argparse.Namespace) -> str:
         _owned(args)
         session = _session(args.scope, args.lab, args)
         max_params = args.max_params or load_config().max_params
-        result = probe.run(
+        probe_result = probe.run(
             session,
             args.scope or "lab",
             args.urls,
@@ -281,10 +305,12 @@ def run_command(args: argparse.Namespace) -> str:
             resume=not args.no_resume,
             seen=_resume_seen(args),
         )
-        return probe.render(result)
+        return probe.render(probe_result)
 
     if args.command == "findings":
-        return findings.render(findings.list_all(args.scope, args.status, args.min_confidence), args.format)
+        return findings.render(
+            findings.list_all(args.scope, args.status, args.min_confidence, args.devil), args.format
+        )
 
     if args.command == "verify":
         if args.status:
@@ -298,10 +324,10 @@ def run_command(args: argparse.Namespace) -> str:
     if args.command == "analyze":
         target = Path(args.path)
         paths = sorted(target.glob("*.json")) if target.is_dir() else [target]
-        records: list[dict[str, Any]] = []
+        evidence_records: list[dict[str, Any]] = []
         for path in paths:
-            records.extend(_records(path))
-        return _write(render_analysis(analyze_records(records), args.format), args.output)
+            evidence_records.extend(_records(path))
+        return _write(render_analysis(analyze_records(evidence_records), args.format), args.output)
 
     if args.command == "report":
         return _write(render_report(args.scope, _records(Path(args.analysis)), args.scope_source), args.output)

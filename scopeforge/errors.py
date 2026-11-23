@@ -17,6 +17,10 @@ class DataError(UsageError):
     pass
 
 
+class SearchError(ScopeForgeError):
+    exit_code = 1
+
+
 class NetworkError(ScopeForgeError):
     pass
 

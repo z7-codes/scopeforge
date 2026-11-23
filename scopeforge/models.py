@@ -21,7 +21,7 @@ class Scope:
         return asdict(self)
 
     @classmethod
-    def from_dict(cls, value: dict[str, Any]) -> "Scope":
+    def from_dict(cls, value: dict[str, Any]) -> Scope:
         return cls(
             name=str(value.get("name", "")),
             domains=[str(item) for item in value.get("domains", [])],
@@ -46,7 +46,7 @@ class Lead:
         return asdict(self)
 
     @classmethod
-    def from_dict(cls, value: dict[str, Any]) -> "Lead":
+    def from_dict(cls, value: dict[str, Any]) -> Lead:
         return cls(
             id=str(value.get("id", "")),
             scope=str(value.get("scope", "")),
@@ -106,6 +106,6 @@ class Finding:
         return asdict(self)
 
     @classmethod
-    def from_dict(cls, value: dict[str, Any]) -> "Finding":
+    def from_dict(cls, value: dict[str, Any]) -> Finding:
         known = {item.name for item in cls.__dataclass_fields__.values()}
         return cls(**{key: value[key] for key in value if key in known})

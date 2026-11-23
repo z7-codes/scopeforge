@@ -3,6 +3,9 @@ from __future__ import annotations
 import json
 import os
 import tempfile
+import time
+from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
 
@@ -44,3 +47,29 @@ def write_json(name: str, value: Any) -> Path:
         if tmp.exists():
             tmp.unlink()
     return path
+
+
+@contextmanager
+def transaction(name: str) -> Iterator[None]:
+    lock = ensure_data_dir() / f".{name}.lock"
+    deadline = time.monotonic() + 10
+    while True:
+        try:
+            fd = os.open(lock, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+            break
+        except FileExistsError:
+            try:
+                age = time.time() - lock.stat().st_mtime
+            except FileNotFoundError:
+                continue
+            if age > 30:
+                lock.unlink(missing_ok=True)
+                continue
+            if time.monotonic() > deadline:
+                raise TimeoutError("lock timeout: " + name) from None
+            time.sleep(0.05)
+    try:
+        yield
+    finally:
+        os.close(fd)
+        lock.unlink(missing_ok=True)

@@ -1,25 +1,25 @@
 # Security Policy
 
-ScopeForge is designed for authorized security work, labs, and CTFs only.
-
 ## Supported versions
 
-- `0.1.x` — active development.
+| Version | Supported |
+|---|---|
+| 0.4.x | yes |
+| 0.3.x and below | no |
 
-## Allowed use
+## Reporting
 
-- Assets you own.
-- Written authorization or a bug bounty program scope.
-- Labs such as localhost, DVWA, OWASP Juice Shop.
-- CTF-provided domains.
+Open a private advisory: https://github.com/z7-codes/scopeforge/security/advisories/new
+Public, non-sensitive: normal issue. Expect a first reply in 7 days.
 
-## Out of scope
+## Scope of the tool
 
-- Third-party websites without written permission.
-- Credential theft, credential stuffing, or brute force.
-- Exploit chains, data extraction, malware, phishing, or denial of service.
-- Testing with real user accounts or real user data.
+ScopeForge sends HTTP requests. It never exploits. Findings are signals, not
+confirmed vulnerabilities. Redirects are blocked by default; one hop is opt-in
+with a scope re-check. Every request passes one choke point (`net.py:Session.get`)
+which enforces written scope, `--i-own-this`, and the request budget.
 
-## Reporting a security issue
+## Known limits
 
-Open a private GitHub security advisory for this repository. Include reproduction steps, impact, and a minimal redacted proof. Do not post sensitive findings in public issues.
+GET only, 64 KB body cap, no auth flows beyond `--header`/`--cookie`,
+sequential with delay, no proxy, no retries.

@@ -1,11 +1,21 @@
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from typing import Any
 
 from .storage import read_json, write_json
 
 CONFIG_FILE = "config.json"
+LIMITS: dict[str, tuple[float, float]] = {
+    "delay": (0.0, 10.0),
+    "max_requests": (1, 100000),
+    "max_per_host": (1, 100000),
+    "max_urls": (1, 5000),
+    "max_params": (1, 50),
+    "max_queries": (1, 500),
+    "timeout": (1.0, 120.0),
+    "max_bytes": (1024, 5_000_000),
+}
 
 
 @dataclass(frozen=True)
@@ -19,6 +29,7 @@ class Config:
     timeout: float = 8.0
     max_bytes: int = 65536
     provider: str = "auto"
+    lab_suffixes: list[str] = field(default_factory=lambda: [".localhost", ".test"])
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -43,8 +54,13 @@ def set_value(key: str, raw: str) -> Config:
         value = int(raw)
     elif isinstance(current, float):
         value = float(raw)
+    elif isinstance(current, list):
+        value = [item.strip() for item in raw.split(",") if item.strip()]
     else:
         value = raw.strip()
+    bounds = LIMITS.get(key)
+    if bounds and not (bounds[0] <= float(value) <= bounds[1]):
+        raise ValueError(f"{key} must be between {bounds[0]} and {bounds[1]}")
     updated = Config(**{**config.to_dict(), key: value})
     write_json(CONFIG_FILE, updated.to_dict())
     return updated

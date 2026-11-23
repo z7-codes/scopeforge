@@ -1,4 +1,5 @@
 import unittest
+import urllib.request
 from unittest.mock import patch
 
 from scopeforge import __version__, net
@@ -62,9 +63,25 @@ class NetTests(unittest.TestCase):
     def test_user_agent_tracks_package_version(self):
         self.assertEqual(net.USER_AGENT, f"ScopeForge/{__version__} scope-safe-recon")
 
+    def test_ua_override_keeps_default_accept(self):
+        seen: dict[str, str] = {}
+        original = urllib.request.Request
+
+        def spy(url, headers=None, **kwargs):
+            seen.update(headers or {})
+            return original(url, headers=headers, **kwargs)
+
+        with patch("scopeforge.net.urllib.request.Request", side_effect=spy):
+            with patch("scopeforge.net._OPENER.open", return_value=FakeResponse()):
+                net.fetch("https://example.com", headers={"User-Agent": "custom"})
+        self.assertEqual(seen["User-Agent"], "custom")
+        self.assertEqual(seen["Accept"], net.ACCEPT)
+        self.assertNotIn("user-agent", seen)
+
     def test_redirect_not_followed_by_default(self):
         session = net.Session(budget=Budget(delay=0), scope=Scope("t", ["example.com"]))
-        with patch("scopeforge.net.fetch", return_value=_response("https://example.com/a", 302, "https://example.com/b")) as mocked:
+        response = _response("https://example.com/a", 302, "https://example.com/b")
+        with patch("scopeforge.net.fetch", return_value=response) as mocked:
             result = session.get("https://example.com/a")
         self.assertEqual(mocked.call_count, 1)
         self.assertEqual(result.status, 302)
@@ -88,7 +105,8 @@ class NetTests(unittest.TestCase):
         session = net.Session(
             budget=Budget(delay=0), scope=Scope("t", ["example.com"]), allow_redirect=True
         )
-        with patch("scopeforge.net.fetch", return_value=_response("https://example.com/a", 302, "https://evil.test/b")) as mocked:
+        response = _response("https://example.com/a", 302, "https://evil.test/b")
+        with patch("scopeforge.net.fetch", return_value=response) as mocked:
             with self.assertRaises(ScopeError):
                 session.get("https://example.com/a")
         self.assertEqual(mocked.call_count, 1)

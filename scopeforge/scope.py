@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import ipaddress
 import re
+from collections.abc import Sequence
 from dataclasses import dataclass
 from urllib.parse import urlsplit
 
+from .config import load_config
 from .errors import ScopeError
 from .models import Decision, Scope
 from .storage import read_json, write_json
@@ -14,7 +16,7 @@ LABEL = re.compile(r"^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$")
 DOMAIN = re.compile(r"^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$")
 NAME = re.compile(r"^[a-z0-9][a-z0-9._-]{0,63}$")
 LAB_HOSTS = {"localhost", "127.0.0.1", "::1", "0.0.0.0"}
-LAB_SUFFIXES = (".localhost", ".test", ".local", ".internal")
+LAB_SUFFIXES_DEFAULT = (".localhost", ".test")
 
 
 @dataclass(frozen=True)
@@ -22,6 +24,13 @@ class ScopeDecision:
     allowed: bool
     reason: str
     matched: str = ""
+
+
+def _network(token: str) -> ipaddress.IPv4Network | ipaddress.IPv6Network | None:
+    try:
+        return ipaddress.ip_network(token, strict=False)
+    except ValueError:
+        return None
 
 
 def normalize_token(value: str) -> str:
@@ -32,8 +41,19 @@ def normalize_token(value: str) -> str:
         return urlsplit(raw).hostname or ""
     if raw.startswith("*."):
         return "*." + normalize_token(raw[2:])
-    host = raw.split("/")[0].split("?")[0].split("#")[0].split(":")[0]
-    return host.lstrip("*.")
+    candidate = raw.split("/")[0].split("?")[0].split("#")[0]
+    if candidate.startswith("["):
+        end = candidate.find("]")
+        return candidate[1:end] if end != -1 else ""
+    if candidate.count(":") == 1:
+        candidate = candidate.split(":")[0]
+    return candidate.lstrip("*.")
+
+
+def normalize_scope_token(value: str) -> str:
+    raw = str(value).strip()
+    network = _network(raw)
+    return str(network) if network else normalize_token(raw)
 
 
 def safe_name(value: str) -> str:
@@ -47,6 +67,8 @@ def valid_host(value: str) -> bool:
     host = normalize_token(value)
     if not host or len(host) > 253:
         return False
+    if "/" in str(value) and _network(str(value).strip()):
+        return True
     if host == "localhost":
         return True
     try:
@@ -68,6 +90,12 @@ def base_domain(token: str) -> str:
 
 def host_matches(host: str, token: str) -> bool:
     host = normalize_token(host)
+    network = _network(str(token).strip())
+    if network is not None:
+        try:
+            return ipaddress.ip_address(host) in network
+        except ValueError:
+            return False
     token = normalize_token(token)
     if not host or not token:
         return False
@@ -75,9 +103,10 @@ def host_matches(host: str, token: str) -> bool:
     return host == base or host.endswith("." + base)
 
 
-def is_lab_host(host: str) -> bool:
+def is_lab_host(host: str, suffixes: Sequence[str] | None = None) -> bool:
     value = normalize_token(host)
-    return value in LAB_HOSTS or any(value.endswith(suffix) for suffix in LAB_SUFFIXES)
+    chosen = tuple(load_config().lab_suffixes) if suffixes is None else tuple(suffixes)
+    return value in LAB_HOSTS or any(value.endswith(suffix) for suffix in chosen)
 
 
 def check_scope(scope: Scope, candidate: str) -> ScopeDecision:
@@ -130,8 +159,8 @@ def add_scope(name: str, domains: list[str], exclusions: list[str] | None = None
     clean_name = safe_name(name)
     if not clean_name:
         raise ValueError("scope name is required")
-    clean_domains = [normalize_token(item) for item in domains if normalize_token(item)]
-    clean_exclusions = [normalize_token(item) for item in (exclusions or []) if normalize_token(item)]
+    clean_domains = [normalize_scope_token(item) for item in domains if normalize_scope_token(item)]
+    clean_exclusions = [normalize_scope_token(item) for item in (exclusions or []) if normalize_scope_token(item)]
     if not clean_domains:
         raise ValueError("at least one domain is required")
     invalid = [item for item in clean_domains + clean_exclusions if not valid_host(item)]

@@ -22,10 +22,17 @@ XSS_CONTEXTS = {
     "url",
     "html-comment",
 }
+SECRET_LINE = re.compile(
+    r"(?im)^(\s*[\"']?[A-Z0-9_.]*(?:KEY|SECRET|PASSWORD|PASSWD|TOKEN|DSN|CONN|CREDENTIAL)[A-Z0-9_]*[\"']?\s*[=:]\s*)(.*)$"
+)
+
+
+def redact_secrets(text: str) -> str:
+    return SECRET_LINE.sub(r"\1[redacted]", text)
 
 
 def redact(text: Any) -> str:
-    value = str(text or "")
+    value = redact_secrets(str(text or ""))
     value = re.sub(r"([A-Za-z0-9_.-]+)=([^\s&\"']+)", r"\1=[redacted]", value)
     value = re.sub(r"[\w.+-]+@[\w-]+\.[\w.-]+", "[email]", value)
     value = re.sub(r"\beyJ[A-Za-z0-9_-]{10,}\b", "[token]", value)
@@ -132,7 +139,12 @@ def render_analysis(records: list[dict[str, Any]], fmt: str = "text") -> str:
     if fmt == "json":
         return json.dumps(records, indent=2)
     if fmt == "md":
-        lines = ["# ScopeForge Analysis", "", "Status values are evidence signals, not automatic vulnerability declarations.", ""]
+        lines = [
+            "# ScopeForge Analysis",
+            "",
+            "Status values are evidence signals, not automatic vulnerability declarations.",
+            "",
+        ]
         lines.append("| ID | Category | Status | Score | Reason |")
         lines.append("|---|---|---|---:|---|")
         lines.extend(

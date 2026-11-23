@@ -1,6 +1,8 @@
 import os
 import tempfile
+import time
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 
 from scopeforge import findings
@@ -55,6 +57,23 @@ class FindingStoreTests(unittest.TestCase):
     def test_render_rejects_unknown_format(self):
         with self.assertRaises(ValueError):
             findings.render([], "yaml")
+
+    def test_devil_sorts_by_signal_length(self):
+        short = self.make(signal="a")
+        long = self.make(signal="longer signal", url="https://example.com/other")
+        self.assertEqual([item.id for item in findings.list_all("t", devil=True)], [long.id, short.id])
+
+    def test_lock_is_released(self):
+        self.make()
+        self.assertFalse((Path(self.tmp.name) / ".findings.json.lock").exists())
+
+    def test_stale_lock_is_recovered(self):
+        lock = Path(self.tmp.name) / ".findings.json.lock"
+        lock.write_text("", encoding="utf-8")
+        old = time.time() - 31
+        os.utime(lock, (old, old))
+        self.make()
+        self.assertFalse(lock.exists())
 
 
 if __name__ == "__main__":

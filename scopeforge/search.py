@@ -5,7 +5,7 @@ import os
 import re
 import urllib.parse
 
-from .errors import UsageError
+from .errors import SearchError, UsageError
 from .net import fetch
 
 DDG_URL = "https://html.duckduckgo.com/html/?q="
@@ -55,20 +55,27 @@ def brave(query: str, limit: int = 10) -> list[str]:
     return [str(item["url"]) for item in results if item.get("url")][:limit]
 
 
-PROVIDERS = {"ddg": ddg, "google_cse": google_cse, "brave": brave, "file": from_file}
+PROVIDERS = {"ddg": ddg, "google_cse": google_cse, "brave": brave}
 
 
-def search(query: str, provider: str = "auto", limit: int = 10) -> list[str]:
+def search(query: str, provider: str = "auto", limit: int = 10, source: str | None = None) -> list[str]:
+    if provider == "file":
+        if not source:
+            raise UsageError("file provider needs --input")
+        return from_file(source, limit)
     if provider != "auto":
         handler = PROVIDERS.get(provider)
         if handler is None:
             raise UsageError("unknown provider: " + provider)
         return handler(query, limit)
+    failures: list[str] = []
     for name in ("google_cse", "brave", "ddg"):
         try:
             results = PROVIDERS[name](query, limit)
-        except Exception:
+        except Exception as exc:
+            failures.append(f"{name}: {exc}")
             continue
         if results:
             return results
-    return []
+        failures.append(f"{name}: 0 results")
+    raise SearchError("all providers failed :: " + " | ".join(failures))

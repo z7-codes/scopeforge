@@ -4,8 +4,8 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
+from collections.abc import Mapping
 from dataclasses import dataclass, field
-from typing import Mapping
 
 from . import __version__
 from .budget import Budget

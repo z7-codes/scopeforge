@@ -7,7 +7,7 @@ from typing import Any
 
 from .analyzer import redact
 from .models import Finding
-from .storage import read_json, write_json
+from .storage import read_json, transaction, write_json
 
 FINDINGS_FILE = "findings.json"
 STATUSES = ("new", "confirmed", "false-positive", "skipped")
@@ -40,9 +40,10 @@ def add(scope: str, kind: str, category: str, url: str, confidence: str = "low",
         confidence=confidence,
         **extra,
     )
-    items = load()
-    items.append(finding.to_dict())
-    write_json(FINDINGS_FILE, items)
+    with transaction(FINDINGS_FILE):
+        items = load()
+        items.append(finding.to_dict())
+        write_json(FINDINGS_FILE, items)
     return finding
 
 
@@ -53,7 +54,12 @@ def get(finding_id: str) -> Finding:
     raise ValueError("finding not found: " + finding_id)
 
 
-def list_all(scope: str | None = None, status: str | None = None, min_confidence: str = "low") -> list[Finding]:
+def list_all(
+    scope: str | None = None,
+    status: str | None = None,
+    min_confidence: str = "low",
+    devil: bool = False,
+) -> list[Finding]:
     floor = CONFIDENCE.index(min_confidence)
     items = [Finding.from_dict(value) for value in load() if isinstance(value, dict)]
     if scope:
@@ -62,25 +68,29 @@ def list_all(scope: str | None = None, status: str | None = None, min_confidence
         items = [item for item in items if item.status == status]
     items = [item for item in items if CONFIDENCE.index(item.confidence) >= floor]
     order = {key: index for index, key in enumerate(CONFIDENCE)}
-    items.sort(key=lambda item: (order[item.confidence], item.created), reverse=True)
+    if devil:
+        items.sort(key=lambda item: (len(str(item.signal)), item.created), reverse=True)
+    else:
+        items.sort(key=lambda item: (order[item.confidence], item.created), reverse=True)
     return items
 
 
 def set_status(finding_id: str, status: str, note: str = "") -> Finding:
     if status not in STATUSES:
         raise ValueError("status must be " + ", ".join(STATUSES))
-    items = load()
-    updated: Finding | None = None
-    for value in items:
-        if isinstance(value, dict) and value.get("id") == finding_id:
-            value["status"] = status
-            if note:
-                value["note"] = redact(note)
-            updated = Finding.from_dict(value)
-            break
-    if updated is None:
-        raise ValueError("finding not found: " + finding_id)
-    write_json(FINDINGS_FILE, items)
+    with transaction(FINDINGS_FILE):
+        items = load()
+        updated: Finding | None = None
+        for value in items:
+            if isinstance(value, dict) and value.get("id") == finding_id:
+                value["status"] = status
+                if note:
+                    value["note"] = redact(note)
+                updated = Finding.from_dict(value)
+                break
+        if updated is None:
+            raise ValueError("finding not found: " + finding_id)
+        write_json(FINDINGS_FILE, items)
     return updated
 
 
