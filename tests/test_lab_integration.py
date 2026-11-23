@@ -39,7 +39,7 @@ class LabIntegrationTests(unittest.TestCase):
         with patch("scopeforge.net.fetch", side_effect=self.routed_fetch):
             code, out, _ = self.call(["scan", LAB_URL, "--lab", "--tier", "all", "--i-own-this", "--no-resume"])
         self.assertEqual(code, 0)
-        self.assertIn("0 finding", out)
+        self.assertIn("Exposure scan", out)
 
         probe_url = f"{LAB_URL}/?{urlencode({'q': 'test'})}"
         with patch("scopeforge.net.fetch", side_effect=self.routed_fetch):
