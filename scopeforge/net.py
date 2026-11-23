@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import sys
 import time
 import urllib.error
 import urllib.parse
@@ -9,7 +10,7 @@ from dataclasses import dataclass, field
 
 from . import __version__
 from .budget import Budget
-from .errors import NetworkError
+from .errors import NetworkError, ScopeError
 from .models import Scope
 from .scope import guard, normalize_token
 
@@ -90,6 +91,7 @@ class Session:
 
     def get(self, url: str) -> Response:
         guard(self.scope, url, self.lab)
+        self._check_host_header()
         current = url
         response = self._fetch_checked(current)
         hop = 0
@@ -104,6 +106,19 @@ class Session:
             response = self._fetch_checked(current)
             hop += 1
         return response
+
+    def _check_host_header(self) -> None:
+        host = str(self.headers.get("Host", "")).strip()
+        if not host or not self.scope:
+            return
+        probe = urllib.parse.urlunsplit(("http", host, "/", "", ""))
+        try:
+            guard(self.scope, probe, self.lab)
+        except ScopeError:
+            print(
+                f"warn: Host header {host!r} is out of scope; responses may be from an unvalidated host",
+                file=sys.stderr,
+            )
 
     def _fetch_checked(self, url: str) -> Response:
         self.budget.spend(normalize_token(url))

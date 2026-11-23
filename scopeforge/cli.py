@@ -5,27 +5,34 @@ import json
 import sys
 import time
 from collections.abc import Sequence
+from contextlib import ExitStack
 from pathlib import Path
 from typing import Any
 
-from . import __version__, findings, probe, search, verify
+from . import __version__, findings, inject, probe, search, ui, verify
 from .analyzer import analyze_records, render_analysis
 from .budget import Budget
 from .config import load_config, set_value
 from .dorks import CATEGORIES, build_plan, render_plan
-from .errors import ScopeForgeError, SearchError, UsageError
+from .errors import NothingFound, ScopeForgeError, SearchError, UsageError
 from .evidence import folder as evidence_folder
 from .exposure import build_worksheet
 from .exposure import render as render_scan
 from .exposure import run as run_scan
 from .ledger import add_lead, list_leads, render_leads
 from .net import Session
+from .preflight import check as check_preflight
 from .report import render_report
 from .scope import add_scope, get_scope, list_scopes, remove_scope
 from .state import clear as clear_state
 from .state import load_seen
 
-CANONICAL_HEADERS = {"user-agent": "User-Agent", "accept": "Accept", "cookie": "Cookie"}
+CANONICAL_HEADERS = {
+    "user-agent": "User-Agent",
+    "accept": "Accept",
+    "cookie": "Cookie",
+    "host": "Host",
+}
 
 
 def _session(scope_name: str | None, lab: bool, args: argparse.Namespace) -> Session:
@@ -75,6 +82,7 @@ def _resume_seen(args: argparse.Namespace) -> set[str]:
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="scopeforge", description="Scope-safe recon, proof, and triage.")
     parser.add_argument("--version", action="version", version=f"scopeforge {__version__}")
+    parser.add_argument("--skip-preflight", action="store_true", help="skip tool checks and session banner")
     sub = parser.add_subparsers(dest="command", required=True)
 
     sub.add_parser("interactive", help="numbered console")
@@ -158,6 +166,21 @@ def build_parser() -> argparse.ArgumentParser:
     pb.add_argument("--no-resume", action="store_true")
     pb.add_argument("--i-own-this", action="store_true")
 
+    ij = sub.add_parser("inject", help="authorized payload ladder with paired baselines")
+    ij.add_argument("urls", nargs="+")
+    ij.add_argument("--scope")
+    ij.add_argument("--lab", action="store_true")
+    ij.add_argument("--classes", default="", help="comma-separated payload classes")
+    ij.add_argument("--max-classes", type=int, default=2)
+    ij.add_argument("--delay", type=float)
+    ij.add_argument("--max-requests", type=int)
+    ij.add_argument("--max-per-host", type=int)
+    ij.add_argument("--allow-redirect", action="store_true")
+    ij.add_argument("--header", action="append", default=[], help="extra request header 'Name: value'")
+    ij.add_argument("--cookie", default="", help="Cookie header value")
+    ij.add_argument("--ua", default="", help="override User-Agent header")
+    ij.add_argument("--i-own-this", action="store_true")
+
     fd = sub.add_parser("findings", help="inspect findings")
     fd_sub = fd.add_subparsers(dest="findings_command", required=True)
     fdl = fd_sub.add_parser("list")
@@ -194,8 +217,11 @@ def build_parser() -> argparse.ArgumentParser:
     stc = st_sub.add_parser("clear")
     stc.add_argument("scope")
 
-    lb = sub.add_parser("lab", help="guided lab checks")
-    lb.add_argument("scenario", choices=("localhost", "dvwa", "juice-shop", "ctf"))
+    lb = sub.add_parser("lab", help="guided lab checks or loopback lab server")
+    lb.add_argument("scenario", nargs="?", choices=("localhost", "dvwa", "juice-shop", "ctf", "serve"))
+    lb.add_argument("--serve", action="store_true", help="start the local lab server")
+    lb.add_argument("--port", type=int, default=8099, help="lab server port")
+    lb.add_argument("--bind", default="127.0.0.1", help="loopback bind address")
     return parser
 
 
@@ -243,10 +269,11 @@ def run_command(args: argparse.Namespace) -> str:
         scope = get_scope(args.scope)
         config = load_config()
         limit = args.max_queries or config.max_queries
-        records = build_plan(scope, args.category, limit)
         if args.provider == "file":
             urls = search.search("", "file", args.limit, args.input)
+            records: list[dict[str, Any]] = []
         else:
+            records = build_plan(scope, args.category, limit)
             urls = []
             failures = 0
             for index, record in enumerate(records):
@@ -290,6 +317,8 @@ def run_command(args: argparse.Namespace) -> str:
             resume=not args.no_resume,
             seen=_resume_seen(args),
         )
+        if not result.findings:
+            raise NothingFound("scan produced no findings")
         return render_scan(result)
 
     if args.command == "probe":
@@ -305,7 +334,18 @@ def run_command(args: argparse.Namespace) -> str:
             resume=not args.no_resume,
             seen=_resume_seen(args),
         )
+        if not probe_result.findings:
+            raise NothingFound("probe produced no findings")
         return probe.render(probe_result)
+
+    if args.command == "inject":
+        _owned(args)
+        session = _session(args.scope, args.lab, args)
+        requested = [item.strip() for item in args.classes.split(",") if item.strip()] or None
+        inject_result = inject.run(session, args.scope or "lab", args.urls, requested, args.max_classes)
+        if not inject_result.findings:
+            raise NothingFound("inject produced no findings")
+        return inject.render(inject_result)
 
     if args.command == "findings":
         return findings.render(
@@ -347,6 +387,13 @@ def run_command(args: argparse.Namespace) -> str:
         return f"state cleared: {args.scope}"
 
     if args.command == "lab":
+        if args.serve or args.scenario == "serve":
+            from .lab_serve import serve
+
+            serve(args.port, args.bind)
+            return ""
+        if not args.scenario:
+            raise UsageError("choose a lab scenario or use 'lab serve'")
         from .lab import render_lab
 
         return render_lab(args.scenario)
@@ -356,26 +403,36 @@ def run_command(args: argparse.Namespace) -> str:
 
 def main(argv: Sequence[str] | None = None) -> int:
     raw = list(argv) if argv is not None else list(sys.argv[1:])
-    if not raw:
-        from .tui import run_interactive
+    from_cli = argv is None
+    informational = any(flag in raw for flag in ("--version", "-h", "--help"))
+    with ExitStack() as stack:
+        log = None
+        if from_cli and not informational and "--skip-preflight" not in raw:
+            code = check_preflight()
+            if code:
+                return code
+            ui.banner(__version__)
+            ui.trap_sigint()
+            scope = raw[0]
+            if "--scope" in raw and len(raw) > raw.index("--scope") + 1:
+                scope = raw[raw.index("--scope") + 1]
+            log = stack.enter_context(ui.session_log(scope))
+        if not raw or raw[0] == "interactive":
+            from .tui import run_interactive
 
-        return run_interactive()
-    args = build_parser().parse_args(raw)
-    if args.command == "interactive":
-        from .tui import run_interactive
-
-        return run_interactive()
-    try:
-        output = run_command(args)
-    except ScopeForgeError as exc:
-        print(f"error: {exc}", file=sys.stderr)
-        return exc.exit_code
-    except (ValueError, OSError, json.JSONDecodeError) as exc:
-        print(f"error: {exc}", file=sys.stderr)
-        return 2
-    except KeyboardInterrupt:
-        print("interrupted", file=sys.stderr)
-        return 130
-    if output:
-        print(output)
-    return 0
+            return run_interactive(log=log)
+        args = build_parser().parse_args(raw)
+        try:
+            output = run_command(args)
+        except ScopeForgeError as exc:
+            ui.error(f"error: {exc}", log)
+            return exc.exit_code
+        except (ValueError, OSError, json.JSONDecodeError) as exc:
+            ui.error(f"error: {exc}", log)
+            return 2
+        except KeyboardInterrupt:
+            ui.error("interrupted", log)
+            return 130
+        if output:
+            ui.tee(output, log)
+        return 0

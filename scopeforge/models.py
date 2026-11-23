@@ -85,6 +85,7 @@ class Finding:
     url: str
     request_url: str = ""
     parameter: str = ""
+    payload_class: str = ""
     payload: str = ""
     surface: str = ""
     context: str = ""

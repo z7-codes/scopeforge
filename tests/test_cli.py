@@ -55,11 +55,12 @@ class CliTests(unittest.TestCase):
         with self.assertRaises(UsageError):
             parse_headers(["bogus"])
 
-    def test_help_has_no_inject_command(self):
+    def test_help_has_inject_command(self):
         help_text = cli.build_parser().format_help()
-        self.assertNotIn("inject", help_text.lower())
+        self.assertIn("inject", help_text.lower())
         self.assertIn("scan", help_text)
         self.assertIn("probe", help_text)
+        self.assertIn("--skip-preflight", help_text)
 
     def test_scope_commands(self):
         code, out, _ = self.call(["scope", "list"])

@@ -1,11 +1,53 @@
 {
-  "version": 1,
+  "version": 2,
   "classes": {
     "marker": {
       "category": "reflection",
       "canary": "z7sf7q",
       "steps": ["z7sf7q"],
       "pairs": []
+    },
+    "sqli_boolean": {
+      "category": "injection",
+      "canary": "z7sqlbool",
+      "steps": ["'", "' OR 1=1--", "1 OR 1=1"],
+      "pairs": [
+        ["'", "' OR 1=1--"],
+        ["1", "1 OR 1=1"]
+      ]
+    },
+    "xss_reflect": {
+      "category": "reflection",
+      "canary": "z7xss",
+      "steps": ["z7xss", "<script>z7xss</script>", "\"><svg onload=z7xss()>"],
+      "pairs": [
+        ["z7xss", "<script>z7xss</script>"],
+        ["z7xss", "\"><svg onload=z7xss()>"]
+      ]
+    },
+    "traversal": {
+      "category": "disclosure",
+      "canary": "z7trav",
+      "steps": ["normal.txt", "../../etc/passwd"],
+      "pairs": [
+        ["normal.txt", "../../etc/passwd"]
+      ]
+    },
+    "ssti": {
+      "category": "injection",
+      "canary": "z7ssti",
+      "steps": ["z7ssti", "{{7*7}}"],
+      "pairs": [
+        ["z7ssti", "{{7*7}}"]
+      ]
+    },
+    "open_redirect": {
+      "category": "redirect",
+      "canary": "z7redir",
+      "steps": ["/ok", "http://127.0.0.1:8099/redirect-target"],
+      "pairs": [
+        ["/ok", "http://127.0.0.1:8099/redirect-target"]
+      ]
     }
   }
 }
