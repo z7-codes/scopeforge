@@ -1,0 +1,24 @@
+quick:
+  stages: [passive, dork]
+  max_dork_queries: 20
+  rps_per_host: 4.0
+  concurrency: 6
+  min_confidence: 3
+  max_payload_urls: 40
+  deep: false
+full:
+  stages: [passive, dork, dirs, payload]
+  max_dork_queries: 40
+  rps_per_host: 3.0
+  concurrency: 8
+  min_confidence: 2
+  max_payload_urls: 200
+  deep: false
+deep:
+  stages: [passive, dork, dirs, payload, blind]
+  max_dork_queries: 80
+  rps_per_host: 2.0
+  concurrency: 6
+  min_confidence: 2
+  max_payload_urls: 60
+  deep: true

@@ -1,22 +1,25 @@
 # Contributing
 
-Contributions are welcome when they keep ScopeForge scoped, offline-first, and evidence-driven.
+Contributions are welcome when they keep DorkLens focused, safe, and easy.
 
 ## Setup
 
 ```bash
-python -m pip install -e .
-python -m unittest discover -s tests -v
+bash install.sh
+. .venv/bin/activate
+python -m dorklens selftest
+python -m dorklens demo
+python -m pytest -q
 ```
 
 ## Rules
 
-- No network calls by default.
-- No payload firing, mass scanning, credential attacks, exploit chains, or data extraction.
-- No storage of secrets or real user data.
-- Every new signal must produce a status and a next validation step.
+- Scope is required. Never bypass it.
+- Keep requests GET-only unless a new mode is explicitly designed and documented.
+- Do not add credential attacks, exploit chains, or data extraction.
+- Every finding must carry evidence and a manual next step.
 - Every behavior change needs a test.
-- Keep wording precise: signals are not automatic vulnerability declarations.
+- Keep wording precise: signals are not vulnerability verdicts.
 
 ## Commit style
 

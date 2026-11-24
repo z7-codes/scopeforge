@@ -1,0 +1,8 @@
+# DorkLens config. Sirf domain badalna zaroori hai.
+domain: "{{d}}"
+profile: full
+max_dork_queries: 40
+scope:
+  allow: ["{{d}}", "*.{{d}}"]
+  deny: []
+out_dir: dorklens-out

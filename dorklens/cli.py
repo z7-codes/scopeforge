@@ -1,197 +1,229 @@
 from __future__ import annotations
 
 import argparse
-import json
+import asyncio
 import sys
+import time
+import webbrowser
 from pathlib import Path
 
-from . import __version__, dorks, ui
-from . import report as report_module
-from . import search as search_module
-from .errors import DorkLensError
+from . import __version__, demo, doctor, selftest, ui
+from .config import TAGLINE, Config
+from .http import Client
+from .modules import dirs, dork, params, passive, payloads
+from .report import write
+from .scope import Scope
+from .storage import Store
 
-COMMANDS = {"dorks", "search", "report", "categories"}
-
-
-def _write(text: str, output: str) -> None:
-    if not output:
-        print(text)
-        return
-    path = Path(output)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(text, encoding="utf-8")
-    print(f"saved: {path}", file=sys.stderr)
+SUBS = {"wizard", "doctor", "demo", "report", "init", "selftest"}
 
 
-def _parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(
-        prog="dorklens",
-        description="DorkLens generates advanced dorks and collects passive public exposure signals.",
+def build_cfg(args: argparse.Namespace) -> Config:
+    config_path = getattr(args, "config", None)
+    if config_path:
+        cfg = Config.from_file(config_path)
+    else:
+        cfg = Config.from_domain(str(getattr(args, "domain", "example.com")))
+    scope_value = getattr(args, "scope", None)
+    if scope_value:
+        cfg.scope = Scope(
+            allow=[item.strip() for item in str(scope_value).split(",") if item.strip()],
+            deny=cfg.scope.deny,
+        )
+    profile = getattr(args, "profile", None)
+    if profile:
+        cfg.apply_profile(profile)
+    for name in ("insecure", "min_confidence", "concurrency", "proxy", "out"):
+        value = getattr(args, name, None)
+        if value is not None:
+            setattr(cfg, "out_dir" if name == "out" else name, value)
+    if getattr(args, "dry_run", False):
+        cfg.dry_run = True
+    return cfg
+
+
+async def run_stage(name: str, action, *arguments: object) -> int:
+    with ui.stage(name):
+        try:
+            return int(await action(*arguments))
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:
+            ui.err(f"{name}: {exc}")
+            return 0
+
+
+async def pipeline(cfg: Config) -> int:
+    store = Store(cfg.out_dir / "state.db")
+    client = Client(cfg)
+    started = time.monotonic()
+    try:
+        if "passive" in cfg.stages:
+            async def collect_passive() -> int:
+                total = await run_stage("passive", passive.crtsh, cfg, client, store)
+                total += await run_stage("passive", passive.wayback, cfg, client, store)
+                total += await run_stage("passive", passive.seeds, cfg, client, store)
+                ui.info(f"total +{total}")
+                return total
+
+            await collect_passive()
+
+        if "dork" in cfg.stages:
+            total = await run_stage("dork", dork.run, cfg, client, store)
+            ui.info(f"+{total}")
+
+        bases = [f"{scheme}://{cfg.domain}/" for scheme in cfg.schemes]
+        if "dirs" in cfg.stages:
+            total = await run_stage("dirs", dirs.run, cfg, client, store, bases)
+            ui.info(f"+{total}")
+
+        targets = params.collect(cfg, store)
+        ui.info(f"{len(targets)} parametrized URLs mile")
+
+        if "payload" in cfg.stages and targets:
+            total = await run_stage("payload", payloads.run, cfg, client, store, targets)
+            ui.info(f"{total} findings")
+
+        if "blind" in cfg.stages and targets and cfg.deep:
+            total = await run_stage("blind", payloads.blind, cfg, client, store, targets)
+            ui.info(f"{total} timing findings")
+    finally:
+        await client.close()
+        path = write(store, cfg.out_dir)
+        ui.summary(store.count("urls"), store.count("findings"), time.monotonic() - started, path)
+        store.close()
+    return 0
+
+
+def cmd_wizard(args: argparse.Namespace | None) -> int:
+    domain = ui.ask_domain()
+    profile = ui.ask_profile()
+    ui.info(f"scope: {domain}, *.{domain}")
+    if not ui.ask_go():
+        return 0
+    cfg = Config.from_domain(domain).apply_profile(profile)
+    return asyncio.run(pipeline(cfg))
+
+
+def cmd_demo(args: argparse.Namespace) -> int:
+    port = int(args.port)
+    server = demo.serve(port)
+    ui.head("demo")
+    ui.info(f"local site: http://127.0.0.1:{port}  (asli target nahi, sirf dikhane ke liye)")
+    cfg = Config.from_domain(
+        f"127.0.0.1:{port}",
+        stages=["dirs", "payload"],
+        out_dir=Path(args.out or "dorklens-demo"),
     )
-    parser.add_argument("--version", action="version", version=f"DorkLens {__version__}")
-    commands = parser.add_subparsers(dest="command")
+    cfg.scope = Scope(allow=["127.0.0.1"])
+    cfg.schemes = ["http"]
+    cfg.wordlist = Path(__file__).parent / "data" / "demo-wordlist.txt"
+    cfg.rps_per_host = 50.0
+    cfg.min_confidence = 1
+    cfg.dry_run = False
+    try:
+        return asyncio.run(pipeline(cfg))
+    finally:
+        server.shutdown()
+        server.server_close()
 
-    gen = commands.add_parser("dorks", help="generate dork queries for a domain")
-    gen.add_argument("domain", help="example.com or https://example.com")
-    gen.add_argument("--category", default="all", help="category name or all")
-    gen.add_argument("--limit", type=int, default=0, help="maximum queries; 0 means all")
-    gen.add_argument("--format", choices=("text", "json", "md"), default="text")
 
-    find = commands.add_parser("search", help="run passive searches and collect public results")
-    find.add_argument("domain", help="example.com or https://example.com")
-    find.add_argument("--category", default="all", help="category name or all")
-    find.add_argument(
-        "--provider",
-        choices=("auto", "ddg", "google_cse", "brave", "file"),
-        default="auto",
+def cmd_report(args: argparse.Namespace) -> int:
+    out = Path(args.out)
+    store = Store(out / "state.db")
+    path = write(store, out)
+    ui.ok(f"report: {path}")
+    store.close()
+    return 0
+
+
+def cmd_init(args: argparse.Namespace) -> int:
+    template = Path(__file__).parent / "data" / "dorklens.yaml.example"
+    destination = Path("dorklens.yaml")
+    if destination.exists():
+        ui.warn("dorklens.yaml pehle se hai")
+        return 1
+    destination.write_text(
+        template.read_text(encoding="utf-8").replace("{{d}}", args.domain),
+        encoding="utf-8",
     )
-    find.add_argument("--input", default="", help="local URL file for the file provider or import")
-    find.add_argument("--limit", type=int, default=10, help="results per query")
-    find.add_argument("--max-queries", type=int, default=40, help="queries to run; 0 means all")
-    find.add_argument("--max-results", type=int, default=100, help="maximum collected results")
-    find.add_argument("--delay", type=float, default=0.0, help="delay between queries in seconds")
-    find.add_argument("--format", choices=("text", "json", "md"), default="text")
-    find.add_argument("--output", default="", help="write output to a file")
+    ui.ok(f"{destination} bana - ab: dorklens -c dorklens.yaml")
+    return 0
 
-    make_report = commands.add_parser("report", help="render a report from saved results JSON")
-    make_report.add_argument("input", help="results JSON from search --format json")
-    make_report.add_argument("--format", choices=("md", "text", "json"), default="md")
-    make_report.add_argument("--output", default="", help="write output to a file")
 
-    listing = commands.add_parser("categories", help="list dork categories")
-    listing.add_argument("--format", choices=("text", "json"), default="text")
-
+def subparser(sub: str) -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(prog=f"dorklens {sub}")
+    if sub == "demo":
+        parser.add_argument("--port", type=int, default=8765)
+        parser.add_argument("-o", "--out", default=None)
+    if sub == "report":
+        parser.add_argument("-o", "--out", default="dorklens-out")
+    if sub == "init":
+        parser.add_argument("domain")
     return parser
-
-
-def _dork_text(plans: list[dorks.Dork], domain: str) -> str:
-    lines = [ui.banner(), f"Target: {domain}", f"Queries: {len(plans)}", ""]
-    current = ""
-    for plan in plans:
-        if plan.category != current:
-            current = plan.category
-            lines.append(ui.section(current))
-            if plan.description:
-                lines.append(plan.description)
-                lines.append("")
-        lines.append(plan.query)
-    lines.extend(
-        [
-            "",
-            "Passive dork plan only. No requests were sent to the target.",
-            "Public results are signals that require manual verification.",
-            "",
-        ]
-    )
-    return "\n".join(lines)
-
-
-def _dork_markdown(plans: list[dorks.Dork], domain: str) -> str:
-    lines = [
-        "# DorkLens Query Plan",
-        "",
-        f"- Domain: {domain}",
-        f"- Queries: {len(plans)}",
-        "",
-        "Passive dork plan only. No requests were sent to the target.",
-        "",
-    ]
-    current = ""
-    for plan in plans:
-        if plan.category != current:
-            current = plan.category
-            lines.extend([f"## {current}", ""])
-            if plan.description:
-                lines.extend([plan.description, ""])
-        lines.append(f"- `{plan.query}`")
-    return "\n".join(lines) + "\n"
-
-
-def _dorks(args: argparse.Namespace) -> int:
-    target = dorks.normalize_domain(args.domain)
-    plans = dorks.build(target, args.category, args.limit)
-    if args.format == "json":
-        payload = {
-            "tool": "DorkLens",
-            "domain": target,
-            "queries": [item.to_dict() for item in plans],
-        }
-        text = json.dumps(payload, indent=2, sort_keys=True) + "\n"
-    elif args.format == "md":
-        text = _dork_markdown(plans, target)
-    else:
-        text = _dork_text(plans, target)
-    _write(text, getattr(args, "output", ""))
-    return 0
-
-
-def _search(args: argparse.Namespace) -> int:
-    result = search_module.search(
-        args.domain,
-        category=args.category,
-        provider=args.provider,
-        limit=args.limit,
-        max_queries=args.max_queries,
-        max_results=args.max_results,
-        input_file=args.input,
-        delay=args.delay,
-    )
-    for warning in result.warnings:
-        print("warn: " + warning, file=sys.stderr)
-    if args.format == "json":
-        text = report_module.render_json(result)
-    elif args.format == "md":
-        text = report_module.render_markdown(result)
-    else:
-        text = ui.banner() + "\n" + report_module.render_text(result)
-    _write(text, args.output)
-    return 0
-
-
-def _report(args: argparse.Namespace) -> int:
-    result = report_module.load_results(args.input)
-    if args.format == "json":
-        text = report_module.render_json(result)
-    elif args.format == "text":
-        text = report_module.render_text(result)
-    else:
-        text = report_module.render_markdown(result)
-    _write(text, args.output)
-    return 0
-
-
-def _categories(args: argparse.Namespace) -> int:
-    values = [{"name": name, "description": dorks.description(name)} for name in dorks.categories()]
-    if args.format == "json":
-        text = json.dumps(values, indent=2, sort_keys=True) + "\n"
-    else:
-        lines = [ui.banner(), "Categories", ""]
-        lines.extend(f"{item['name']:<24} {item['description']}" for item in values)
-        text = "\n".join(lines) + "\n"
-    print(text)
-    return 0
 
 
 def main(argv: list[str] | None = None) -> int:
     values = list(sys.argv[1:] if argv is None else argv)
-    parser = _parser()
+    ui.banner()
     if not values:
-        parser.print_help()
-        return 2
-    if values[0] not in COMMANDS and values[0] not in ("-h", "--help", "--version"):
-        values = ["dorks", *values]
+        return cmd_wizard(None)
+
+    if values[0] in SUBS:
+        sub = values[0]
+        args = subparser(sub).parse_args(values[1:])
+        dispatch = {
+            "wizard": cmd_wizard,
+            "demo": cmd_demo,
+            "report": cmd_report,
+            "init": cmd_init,
+            "doctor": lambda _: 0 if doctor.run() else 1,
+            "selftest": lambda _: 0 if selftest.run_all() else 1,
+        }
+        try:
+            return dispatch[sub](args)
+        except ValueError as exc:
+            ui.err(str(exc))
+            return 2
+
+    parser = argparse.ArgumentParser(prog="dorklens", description=TAGLINE)
+    parser.add_argument("domain")
+    parser.add_argument("-c", "--config")
+    parser.add_argument("-p", "--profile", choices=("quick", "full", "deep"))
+    parser.add_argument("-s", "--scope")
+    parser.add_argument("--insecure", action="store_true", help="TLS error ignore")
+    parser.add_argument("-k", "--min-confidence", type=int)
+    parser.add_argument("-C", "--concurrency", type=int)
+    parser.add_argument("--proxy")
+    parser.add_argument("-o", "--out", type=Path)
+    parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument("--open", action="store_true", help="report browser mein kholo")
+    parser.add_argument("-y", "--yes", action="store_true", help="bina puche chalao")
+    parser.add_argument("-V", "--version", action="version", version=f"dorklens {__version__}")
     args = parser.parse_args(values)
+
     try:
-        if args.command == "search":
-            return _search(args)
-        if args.command == "report":
-            return _report(args)
-        if args.command == "categories":
-            return _categories(args)
-        if args.command == "dorks":
-            return _dorks(args)
-        parser.print_help()
+        cfg = build_cfg(args)
+    except ValueError as exc:
+        ui.err(str(exc))
         return 2
-    except DorkLensError as exc:
-        print("error: " + str(exc), file=sys.stderr)
+
+    ui.head("target")
+    ui.info(f"{cfg.domain}  |  scope {cfg.scope.allow}  |  profile {args.profile or 'full'}")
+    if not args.yes and not ui.ask_go():
+        return 0
+    try:
+        code = asyncio.run(pipeline(cfg))
+    except KeyboardInterrupt:
+        ui.warn("ruk gaya - progress save hai, resume ke liye wahi command dobara chalayein")
+        code = 130
+    except ValueError as exc:
+        ui.err(str(exc))
         return 2
+    if args.open:
+        webbrowser.open((cfg.out_dir / "report.html").resolve().as_uri())
+    return code
+
+
+if __name__ == "__main__":
+    sys.exit(main())

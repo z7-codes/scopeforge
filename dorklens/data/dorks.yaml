@@ -1,0 +1,512 @@
+- cat: directory-listing
+  description: Publicly indexed directory indexes and browseable folders.
+  priority: medium
+  q:
+  - site:{{d}} intitle:"Index of /"
+  - site:{{d}} intitle:"Index of /admin"
+  - site:{{d}} intitle:"Index of /old"
+  - site:{{d}} intitle:"Index of /test"
+  - site:{{d}} intitle:"Index of /dev"
+  - site:{{d}} intitle:"Index of /backup"
+  - site:{{d}} intitle:"Index of /uploads"
+  - site:{{d}} intitle:"Index of /static"
+  - site:{{d}} intitle:"Index of /assets"
+  - site:{{d}} intitle:"Index of /private"
+  - site:{{d}} "Index of /" "Parent Directory"
+  - site:{{d}} "Directory listing for /"
+- cat: sensitive-files
+  description: Sensitive filenames that may be publicly indexed.
+  priority: high
+  q:
+  - site:{{d}} filetype:env ".env"
+  - site:{{d}} inurl:/.env
+  - site:{{d}} inurl:/.git/HEAD
+  - site:{{d}} inurl:/.git/config
+  - site:{{d}} inurl:/.svn/entries
+  - site:{{d}} inurl:/.hg/store
+  - site:{{d}} inurl:/.DS_Store
+  - site:{{d}} inurl:/.htaccess
+  - site:{{d}} inurl:/.htpasswd
+  - site:{{d}} filetype:ini inurl:config
+  - site:{{d}} filetype:properties inurl:config
+  - site:{{d}} filetype:yaml inurl:config
+  - site:{{d}} filetype:yml inurl:config
+  - site:{{d}} filetype:toml inurl:config
+  - site:{{d}} inurl:/private inurl:key
+  - site:{{d}} inurl:/id_rsa
+  - site:{{d}} inurl:/credentials
+  - site:{{d}} inurl:/secrets
+- cat: backups-archives
+  description: Indexed backup, archive, and database dump files.
+  priority: high
+  q:
+  - site:{{d}} filetype:bak
+  - site:{{d}} filetype:backup
+  - site:{{d}} filetype:old
+  - site:{{d}} filetype:zip inurl:backup
+  - site:{{d}} filetype:rar inurl:backup
+  - site:{{d}} filetype:tar inurl:backup
+  - site:{{d}} filetype:gz inurl:backup
+  - site:{{d}} filetype:sql inurl:dump
+  - site:{{d}} filetype:sql inurl:backup
+  - site:{{d}} filetype:7z inurl:backup
+  - site:{{d}} inurl:/backup/ filetype:zip
+  - site:{{d}} inurl:/old/ filetype:sql
+  - site:{{d}} inurl:/archive/ filetype:tar.gz
+  - site:{{d}} ext:bak ext:old ext:zip
+- cat: config-and-secrets
+  description: Public references to configuration files and secret material.
+  priority: high
+  q:
+  - site:{{d}} "API_KEY"
+  - site:{{d}} "SECRET_KEY"
+  - site:{{d}} "ACCESS_TOKEN"
+  - site:{{d}} "aws_access_key_id"
+  - site:{{d}} "secret_access_key"
+  - site:{{d}} "database_password"
+  - site:{{d}} "DB_PASSWORD"
+  - site:{{d}} "private_key"
+  - site:{{d}} "BEGIN RSA PRIVATE KEY"
+  - site:{{d}} "BEGIN OPENSSH PRIVATE KEY"
+  - site:{{d}} filetype:env "KEY"
+  - site:{{d}} filetype:json inurl:config
+  - site:{{d}} inurl:docker-compose.yml
+  - site:{{d}} inurl:.aws/credentials
+  - site:{{d}} inurl:wp-config.php
+- cat: source-control
+  description: Indexed source-control metadata and repository files.
+  priority: high
+  q:
+  - site:{{d}} inurl:/.git/
+  - site:{{d}} intitle:"Index of /.git"
+  - site:{{d}} filetype:gitconfig
+  - site:{{d}} inurl:/.gitlab/
+  - site:{{d}} inurl:/.github/
+  - site:{{d}} inurl:/.svn/
+  - site:{{d}} inurl:/.hg/
+  - site:{{d}} inurl:/.idea/
+  - site:{{d}} inurl:/.vscode/
+  - site:{{d}} filetype:gitmodules
+  - site:{{d}} inurl:/bitbucket/
+  - site:{{d}} inurl:/repository/
+- cat: logs-and-debug
+  description: Exposed logs, debug pages, and diagnostic output.
+  priority: high
+  q:
+  - site:{{d}} filetype:log
+  - site:{{d}} inurl:/logs/
+  - site:{{d}} inurl:/debug/
+  - site:{{d}} inurl:/trace
+  - site:{{d}} "PHP Info"
+  - site:{{d}} intitle:phpinfo
+  - site:{{d}} inurl:/phpinfo.php
+  - site:{{d}} "Stack trace"
+  - site:{{d}} "Fatal error"
+  - site:{{d}} "Warning:" filetype:log
+  - site:{{d}} inurl:/actuator/
+  - site:{{d}} inurl:/metrics
+- cat: admin-panels
+  description: Publicly indexed administration interfaces.
+  priority: high
+  q:
+  - site:{{d}} intitle:"Admin Login"
+  - site:{{d}} intitle:"Administration"
+  - site:{{d}} inurl:/admin
+  - site:{{d}} inurl:/administrator
+  - site:{{d}} inurl:/wp-admin
+  - site:{{d}} inurl:/adminer
+  - site:{{d}} inurl:/phpmyadmin
+  - site:{{d}} inurl:/manager/html
+  - site:{{d}} inurl:/jenkins
+  - site:{{d}} intitle:"Jenkins Dashboard"
+  - site:{{d}} intitle:"Grafana"
+  - site:{{d}} inurl:/kibana
+  - site:{{d}} inurl:/solr
+  - site:{{d}} inurl:/console
+- cat: databases-and-tools
+  description: Indexed database tools and management interfaces.
+  priority: high
+  q:
+  - site:{{d}} intitle:"phpMyAdmin"
+  - site:{{d}} intitle:"Adminer"
+  - site:{{d}} inurl:/mongo-express
+  - site:{{d}} inurl:/redis-commander
+  - site:{{d}} inurl:/elasticsearch
+  - site:{{d}} inurl:/kibana
+  - site:{{d}} inurl:/mysql
+  - site:{{d}} inurl:/postgres
+  - site:{{d}} inurl:/dbadmin
+  - site:{{d}} inurl:/sql/
+- cat: inurl-parameters
+  description: Indexed URLs with parameters worth manual review.
+  priority: low
+  q:
+  - site:{{d}} inurl:?id=
+  - site:{{d}} inurl:?file=
+  - site:{{d}} inurl:?path=
+  - site:{{d}} inurl:?url=
+  - site:{{d}} inurl:?redirect=
+  - site:{{d}} inurl:?next=
+  - site:{{d}} inurl:?target=
+  - site:{{d}} inurl:?page=
+  - site:{{d}} inurl:?doc=
+  - site:{{d}} inurl:?download=
+  - site:{{d}} inurl:?include=
+  - site:{{d}} inurl:?template=
+  - site:{{d}} inurl:?view=
+  - site:{{d}} inurl:?src=
+  - site:{{d}} inurl:?callback=
+  - site:{{d}} inurl:?return=
+  - site:{{d}} inurl:?lang=
+  - site:{{d}} inurl:?q=
+- cat: apis-and-docs
+  description: Public API documentation, schemas, and endpoints.
+  priority: medium
+  q:
+  - site:{{d}} inurl:/api/
+  - site:{{d}} inurl:/api/v1/
+  - site:{{d}} inurl:/swagger
+  - site:{{d}} inurl:/openapi.json
+  - site:{{d}} inurl:/graphql
+  - site:{{d}} "swagger-ui"
+  - site:{{d}} "OpenAPI"
+  - site:{{d}} filetype:json inurl:api
+  - site:{{d}} filetype:yaml inurl:api
+  - site:{{d}} inurl:/docs/
+  - site:{{d}} inurl:/developer/
+  - site:{{d}} inurl:/webhook
+- cat: cloud-storage
+  description: Publicly indexed storage buckets and cloud-hosted files.
+  priority: high
+  q:
+  - site:{{d}} site:s3.amazonaws.com
+  - site:{{d}} site:storage.googleapis.com
+  - site:{{d}} site:blob.core.windows.net
+  - site:{{d}} site:digitaloceanspaces.com
+  - site:{{d}} inurl:s3://
+  - site:{{d}} inurl:storage.googleapis.com
+  - site:{{d}} inurl:.s3.
+  - site:{{d}} "bucket" filetype:log
+  - site:{{d}} inurl:/public/
+- cat: exposed-documents
+  description: Indexed documents, sheets, and text files.
+  priority: medium
+  q:
+  - site:{{d}} filetype:pdf
+  - site:{{d}} filetype:doc
+  - site:{{d}} filetype:docx
+  - site:{{d}} filetype:xls
+  - site:{{d}} filetype:xlsx
+  - site:{{d}} filetype:ppt
+  - site:{{d}} filetype:pptx
+  - site:{{d}} filetype:csv
+  - site:{{d}} filetype:txt
+  - site:{{d}} filetype:md
+  - site:{{d}} filetype:rtf
+  - site:{{d}} filetype:xml
+  - site:{{d}} filetype:ics
+- cat: subdomains-and-assets
+  description: Indexed subdomains and asset hosts.
+  priority: low
+  q:
+  - site:*.{{d}}
+  - site:*.{{d}} -www
+  - site:*.{{d}} inurl:dev
+  - site:*.{{d}} inurl:staging
+  - site:*.{{d}} inurl:test
+  - site:*.{{d}} inurl:api
+  - site:*.{{d}} inurl:admin
+  - site:*.{{d}} inurl:cdn
+  - site:*.{{d}} inurl:static
+  - site:*.{{d}} inurl:mail
+  - site:*.{{d}} filetype:pdf
+  - site:*.{{d}} intitle:"Index of /"
+- cat: technology-stack
+  description: Indexed technology fingerprints and framework signatures.
+  priority: low
+  q:
+  - site:{{d}} "Powered by"
+  - site:{{d}} "X-Powered-By"
+  - site:{{d}} "Django"
+  - site:{{d}} "Laravel"
+  - site:{{d}} "Express"
+  - site:{{d}} "nginx"
+  - site:{{d}} "Apache"
+  - site:{{d}} "ASP.NET"
+  - site:{{d}} "React"
+  - site:{{d}} "Vue"
+  - site:{{d}} "WordPress"
+  - site:{{d}} "Shopify"
+  - site:{{d}} "Cloudflare"
+- cat: error-messages
+  description: Publicly indexed error pages and diagnostic text.
+  priority: medium
+  q:
+  - site:{{d}} "SQL syntax"
+  - site:{{d}} "mysql_fetch_array"
+  - site:{{d}} "ORA-01756"
+  - 'site:{{d}} "Warning: mysql"'
+  - 'site:{{d}} "Fatal error: Uncaught"'
+  - site:{{d}} "java.lang.Exception"
+  - site:{{d}} "Traceback (most recent call last)"
+  - site:{{d}} "Internal Server Error"
+  - site:{{d}} "Access denied for user"
+  - site:{{d}} "Database connection failed"
+- cat: development-environments
+  description: Indexed non-production hosts and paths.
+  priority: medium
+  q:
+  - site:{{d}} inurl:/dev/
+  - site:{{d}} inurl:/test/
+  - site:{{d}} inurl:/staging/
+  - site:{{d}} inurl:/sandbox/
+  - site:{{d}} inurl:/demo/
+  - site:{{d}} inurl:/internal/
+  - site:{{d}} inurl:/beta/
+  - site:{{d}} inurl:/preview/
+  - site:{{d}} intitle:"Development Environment"
+  - site:{{d}} "staging" "password"
+- cat: cms-and-frameworks
+  description: Public CMS and framework artifacts.
+  priority: medium
+  q:
+  - site:{{d}} inurl:/wp-content/
+  - site:{{d}} inurl:/wp-includes/
+  - site:{{d}} inurl:/xmlrpc.php
+  - site:{{d}} inurl:/wp-config.php
+  - site:{{d}} "wp-json"
+  - site:{{d}} inurl:/joomla/
+  - site:{{d}} inurl:/drupal/
+  - site:{{d}} inurl:/sites/default/files/
+  - site:{{d}} inurl:/magento/
+  - site:{{d}} inurl:/laravel/
+- cat: public-mentions
+  description: Third-party pages that mention the target domain.
+  priority: low
+  q:
+  - '"{{d}}" site:pastebin.com'
+  - '"{{d}}" site:gist.github.com'
+  - '"{{d}}" site:github.com'
+  - '"{{d}}" site:gitlab.com'
+  - '"{{d}}" site:stackoverflow.com'
+  - '"{{d}}" site:reddit.com'
+  - '"{{d}}" "api_key"'
+  - '"{{d}}" "password"'
+  - '"{{d}}" "secret"'
+  - '"{{d}}" "token"'
+- cat: authentication-pages
+  description: Indexed login and authentication surfaces.
+  priority: medium
+  q:
+  - site:{{d}} intitle:"Login"
+  - site:{{d}} intitle:"Sign in"
+  - site:{{d}} inurl:/login
+  - site:{{d}} inurl:/signin
+  - site:{{d}} inurl:/auth/
+  - site:{{d}} inurl:/sso
+  - site:{{d}} inurl:/oauth/
+  - site:{{d}} inurl:/reset-password
+  - site:{{d}} inurl:/forgot-password
+  - site:{{d}} inurl:/register
+- cat: security-files
+  description: Public security, policy, and discovery files.
+  priority: low
+  q:
+  - site:{{d}} inurl:/robots.txt
+  - site:{{d}} inurl:/sitemap.xml
+  - site:{{d}} inurl:/security.txt
+  - site:{{d}} inurl:/.well-known/
+  - site:{{d}} filetype:txt inurl:security
+  - site:{{d}} inurl:/ads.txt
+  - site:{{d}} inurl:/humans.txt
+  - site:{{d}} inurl:/crossdomain.xml
+  - site:{{d}} inurl:/clientaccesspolicy.xml
+- cat: source-maps-and-frontend
+  description: Public source maps, bundles, and frontend build artifacts.
+  priority: medium
+  q:
+  - site:{{d}} filetype:map
+  - site:{{d}} inurl:.js.map
+  - site:{{d}} inurl:.css.map
+  - site:{{d}} "sourceMappingURL"
+  - site:{{d}} filetype:map inurl:static
+  - site:{{d}} filetype:map inurl:assets
+  - site:{{d}} "webpack://"
+  - site:{{d}} "sourceRoot"
+  - site:{{d}} "sourcesContent"
+  - site:{{d}} inurl:/sourcemaps/
+  - site:{{d}} filetype:json inurl:manifest
+  - site:{{d}} inurl:/_next/static/ filetype:js
+- cat: ci-cd-and-build
+  description: Indexed CI/CD configuration and build metadata.
+  priority: high
+  q:
+  - site:{{d}} inurl:Jenkinsfile
+  - site:{{d}} inurl:.gitlab-ci.yml
+  - site:{{d}} inurl:.github/workflows
+  - site:{{d}} filetype:yml inurl:workflow
+  - site:{{d}} inurl:.circleci/
+  - site:{{d}} inurl:.travis.yml
+  - site:{{d}} inurl:azure-pipelines.yml
+  - site:{{d}} inurl:bitbucket-pipelines.yml
+  - site:{{d}} inurl:build.gradle
+  - site:{{d}} inurl:package-lock.json
+  - site:{{d}} inurl:yarn.lock
+  - site:{{d}} inurl:pom.xml
+- cat: infrastructure-as-code
+  description: Public infrastructure definitions and deployment metadata.
+  priority: high
+  q:
+  - site:{{d}} filetype:tf
+  - site:{{d}} filetype:tfstate
+  - site:{{d}} inurl:.terraform/
+  - site:{{d}} inurl:terraform.tfvars
+  - site:{{d}} inurl:ansible/
+  - site:{{d}} filetype:yml inurl:playbook
+  - site:{{d}} inurl:docker-compose
+  - site:{{d}} inurl:Dockerfile
+  - site:{{d}} inurl:k8s/
+  - site:{{d}} inurl:kubernetes/
+  - site:{{d}} inurl:helm/
+- cat: temporary-and-editor-files
+  description: Temporary, backup, and editor artifacts that may be indexed.
+  priority: medium
+  q:
+  - site:{{d}} inurl:~
+  - site:{{d}} filetype:swp
+  - site:{{d}} filetype:swo
+  - site:{{d}} filetype:tmp
+  - site:{{d}} filetype:temp
+  - site:{{d}} filetype:bak inurl:www
+  - site:{{d}} filetype:old inurl:html
+  - site:{{d}} filetype:orig
+  - site:{{d}} inurl:/~
+  - site:{{d}} inurl:.backup
+  - site:{{d}} inurl:.save
+- cat: upload-and-file-endpoints
+  description: Indexed upload and file-handling surfaces worth manual review.
+  priority: medium
+  q:
+  - site:{{d}} inurl:/upload
+  - site:{{d}} inurl:/uploads/
+  - site:{{d}} inurl:/file-upload
+  - site:{{d}} inurl:/attachment
+  - site:{{d}} inurl:/media/upload
+  - site:{{d}} intitle:"Upload File"
+  - site:{{d}} "Choose File" intitle:upload
+  - site:{{d}} inurl:/storage/upload
+  - site:{{d}} inurl:/files/ filetype:pdf
+  - site:{{d}} inurl:/public/upload
+- cat: subdomain-takeover-signals
+  description: Indexed subdomains with pages that may indicate unclaimed services.
+  priority: high
+  q:
+  - site:*.{{d}} intitle:"404 Not Found"
+  - site:*.{{d}} "No such host"
+  - site:*.{{d}} "Domain default page"
+  - site:*.{{d}} "Welcome to nginx"
+  - site:*.{{d}} "Apache2 Ubuntu Default Page"
+  - site:*.{{d}} "Site Doesn't Exist"
+  - site:*.{{d}} "This site can't be reached"
+  - site:*.{{d}} inurl:404
+  - site:*.{{d}} intitle:"Index of /"
+  - site:*.{{d}} inurl:staging
+- cat: certificates-and-dns
+  description: Public certificate transparency and DNS-related references.
+  priority: medium
+  q:
+  - '"{{d}}" site:crt.sh'
+  - '"{{d}}" site:certspotter.com'
+  - '"{{d}}" site:transparencyreport.google.com'
+  - '"{{d}}" site:dnsdumpster.com'
+  - '"{{d}}" site:viewdns.info'
+  - '"{{d}}" site:securitytrails.com'
+  - site:{{d}} inurl:/.well-known/acme-challenge/
+  - site:{{d}} filetype:cer
+  - site:{{d}} filetype:crt
+  - site:{{d}} filetype:pem
+- cat: public-code-and-leaks
+  description: Third-party code and paste sites referencing the target domain.
+  priority: high
+  q:
+  - '"{{d}}" site:gist.github.com "api_key"'
+  - '"{{d}}" site:github.com "secret"'
+  - '"{{d}}" site:gitlab.com "token"'
+  - '"{{d}}" site:bitbucket.org "password"'
+  - '"{{d}}" site:pastebin.com "token"'
+  - '"{{d}}" site:rentry.co'
+  - '"{{d}}" site:ghostbin.com'
+  - '"{{d}}" site:justpaste.it'
+  - '"{{d}}" site:codeberg.org'
+  - '"{{d}}" site:sourcegraph.com'
+  - '"{{d}}" filetype:json inurl:token'
+- cat: email-and-identity-exposure
+  description: Publicly indexed email addresses and identity references.
+  priority: low
+  q:
+  - '"@{{d}}" filetype:csv'
+  - '"@{{d}}" filetype:xlsx'
+  - '"@{{d}}" filetype:txt'
+  - '"@{{d}}" site:linkedin.com/in'
+  - '"@{{d}}" site:github.com'
+  - '"@{{d}}" site:pastebin.com'
+  - '"@{{d}}" site:twitter.com'
+  - '"@{{d}}" intitle:"Contact"'
+  - '"@{{d}}" "phone"'
+  - '"@{{d}}" "address"'
+- cat: mobile-and-desktop-apps
+  description: Public app store and package listings referencing the target.
+  priority: low
+  q:
+  - site:play.google.com/store/apps/details "{{d}}"
+  - site:apps.apple.com "{{d}}"
+  - site:apkpure.com "{{d}}"
+  - site:apkmirror.com "{{d}}"
+  - site:microsoft.com/store/apps "{{d}}"
+  - site:chromewebstore.google.com "{{d}}"
+  - site:addons.mozilla.org "{{d}}"
+  - '"{{d}}" filetype:apk'
+- cat: cache-and-archive
+  description: Archived and cached public pages mentioning the target.
+  priority: low
+  q:
+  - site:web.archive.org "{{d}}"
+  - site:archive.org "{{d}}"
+  - site:archive.today "{{d}}"
+  - site:timetravel.mementoweb.org "{{d}}"
+  - site:webcitation.org "{{d}}"
+  - '"{{d}}" "cached"'
+  - '"{{d}}" "archived"'
+  - site:cachedview.com "{{d}}"
+  - site:webcache.googleusercontent.com "{{d}}"
+  - site:wayback.archive-it.org "{{d}}"
+- cat: exposed-interfaces
+  description: Indexed dashboards and management interfaces worth manual review.
+  priority: medium
+  q:
+  - site:{{d}} intitle:"Dashboard"
+  - site:{{d}} intitle:"Control Panel"
+  - site:{{d}} inurl:/dashboard
+  - site:{{d}} inurl:/console
+  - site:{{d}} inurl:/terminal
+  - site:{{d}} inurl:/shell
+  - site:{{d}} inurl:/adminer
+  - site:{{d}} inurl:/webmin
+  - site:{{d}} inurl:/cpanel
+  - site:{{d}} inurl:/plesk
+  - site:{{d}} inurl:/directadmin
+  - site:{{d}} intitle:"Webmin"
+- cat: security-testing-artifacts
+  description: Publicly indexed scan reports and security testing artifacts.
+  priority: high
+  q:
+  - site:{{d}} filetype:xml inurl:nmap
+  - site:{{d}} filetype:nessus
+  - site:{{d}} inurl:nessus
+  - site:{{d}} inurl:burp
+  - site:{{d}} "Nmap scan report"
+  - site:{{d}} "Open ports"
+  - site:{{d}} "Vulnerability Report"
+  - site:{{d}} inurl:/reports/ filetype:pdf
+  - site:{{d}} inurl:/pentest/
+  - site:{{d}} filetype:txt intitle:scan

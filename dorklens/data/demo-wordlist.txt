@@ -1,0 +1,7 @@
+backup/
+index.html
+page?id=1
+go?url=/x
+read?file=a.txt
+admin
+.env

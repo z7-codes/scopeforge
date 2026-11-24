@@ -2,123 +2,154 @@
 
 [![CI](https://github.com/z7-codes/scopeforge/actions/workflows/ci.yml/badge.svg)](https://github.com/z7-codes/scopeforge/actions/workflows/ci.yml)
 
-> DorkLens is the rebuilt, focused CLI for advanced dork planning and passive public exposure discovery.
-> It replaces the older menu-heavy ScopeForge experience.
+> point it, and it sees
 
-DorkLens takes one input — a domain such as `example.com` — and generates a professional, category-based advanced dork plan for that target. It can then run those dorks through passive search providers, collect public results, and produce a clean Markdown report.
+DorkLens is a focused, one-command recon workflow. It finds public signals, builds dorks, walks likely directories, collects parameterized URLs, tests them with a conservative GET-only signal engine, and writes a report you can actually read.
 
-DorkLens is passive. It does not send requests to the target domain, does not fire exploit payloads, does not scrape `google.com`, and does not declare that a target is vulnerable. It reports public exposure signals that a human must verify and triage.
+The catalog contains 380 advanced dorks across 33 categories. Defaults stay fast: quick/full/deep run 20/40/80 high-priority queries first; the full catalog is always available in `dorklens/data/dorks.yaml`.
+
+No config marathon. No flag memorization. A local demo proves the whole engine in seconds without internet.
 
 ## Install
 
 ```bash
-python -m pip install git+https://github.com/z7-codes/scopeforge.git
-dorklens --version
+bash install.sh
+. .venv/bin/activate
 ```
 
-Local development:
+Or manually:
 
 ```bash
-python -m pip install -e .
-python -m dorklens example.com
+python3 -m venv .venv
+. .venv/bin/activate
+python -m pip install -e ".[dev]"
 ```
 
-If the `dorklens` executable is not on your PATH, use `python -m dorklens` instead.
+On Windows, use `python -m dorklens` if the `dorklens` script is not on PATH.
 
-Works on Windows, Linux, and macOS with Python 3.10 or newer.
-
-## Quick start
-
-Generate every dork for a domain:
+## 30-second trust check
 
 ```bash
-dorklens example.com
+dorklens selftest
+dorklens demo
+dorklens demo --out dorklens-demo --port 8765
 ```
 
-Generate a specific category:
+The demo starts a local fixture server, runs the real pipeline, and writes `dorklens-demo/report.html`. You should see `sqli_error`, `sqli_bool`, `open_redirect`, `lfi`, and directory hits. No internet is used.
+
+## One command
 
 ```bash
-dorklens dorks example.com --category directory-listing
+dorklens target.com -p quick -y --open
 ```
 
-List all categories:
+That means: quick profile, no wizard prompt, open the HTML report when done.
+
+Interactive mode:
 
 ```bash
-dorklens categories
+dorklens
 ```
 
-Export a dork plan:
+Three questions: target, profile, go.
+
+Config-driven run:
 
 ```bash
-dorklens dorks example.com --format md --output dork-plan.md
-dorklens dorks example.com --format json --output dork-plan.json
+dorklens init target.com
+dorklens -c dorklens.yaml -y --open
 ```
 
-Run passive searches and save results:
+## Commands
 
-```bash
-dorklens search example.com --output results.json --format json
-dorklens report results.json --output exposure-report.md
+| Command | What it does |
+|---|---|
+| `dorklens` | wizard: domain, profile, confirmation |
+| `dorklens target.com -p quick` | passive + dork only |
+| `dorklens target.com -p full` | passive + dork + dirs + payload |
+| `dorklens target.com -p deep` | full + timing checks |
+| `dorklens -c dorklens.yaml` | run from config |
+| `dorklens demo` | offline end-to-end proof |
+| `dorklens doctor` | dependency and network check |
+| `dorklens selftest` | 11 core checks |
+| `dorklens report -o dorklens-out` | regenerate reports from SQLite state |
+| `dorklens --version` | version |
+
+## Safety model
+
+- Written scope is required. Every target request is checked against it.
+- GET-only. Redirects are not followed, so detection stays intact.
+- Per-host token bucket plus global concurrency limit.
+- Two baselines before a probe. Unstable pages raise the confidence threshold by one.
+- Soft-404 calibration is done per host before directory checks.
+- Signals are not verdicts. Reports include a concrete next step and manual verification language.
+- `Ctrl-C` stops safely; SQLite state is already committed and a replay resumes without duplicate requests.
+
+Only test systems you own or have explicit written permission to test.
+
+## Pipeline
+
+`passive -> dork -> dirs -> params -> payload -> report`
+
+Every stage writes into `dorklens-out/state.db`. The next stage reads from the same SQLite store. A stage crash does not erase earlier work, and re-running the same command skips already-known URLs and findings.
+
+## Detection model
+
+Confidence grows with the number of independent signals:
+
+- regex evidence
+- length delta
+- status change
+- payload reflection
+- similarity drop
+- location match
+
+Deep profile adds timing checks. Each finding carries `signals`, `evidence`, `confidence`, and `advice`.
+
+## Config
+
+See `dorklens.yaml.example`. CLI flags always override config values.
+
+```yaml
+domain: "{{d}}"
+profile: full
+max_dork_queries: 40
+scope:
+  allow: ["{{d}}", "*.{{d}}"]
+  deny: []
+out_dir: dorklens-out
 ```
 
-Import URLs you collected manually:
+## Reports
 
-```bash
-dorklens search example.com --provider file --input urls.txt --format md
-```
+Each run writes:
 
-## Search providers
+- `report.html` - readable card view with severity, evidence, and next step
+- `report.md` - terminal-friendly Markdown
+- `findings.json` - structured results
+- `state.db` - resumable SQLite state
 
-- `auto`: tries configured Google CSE, then Brave, then DuckDuckGo HTML.
-- `google_cse`: uses the official Custom Search API. Set `DORKLENS_CSE_KEY` and `DORKLENS_CSE_CX`.
-- `brave`: uses the Brave Search API. Set `DORKLENS_BRAVE_KEY`.
-- `ddg`: passive DuckDuckGo HTML results. No key required.
-- `file`: imports URLs from a local text file. No network request.
+Use `--open` to launch the HTML report automatically.
 
-Provider names are intentionally hidden from the report unless a provider fails. DorkLens never scrapes `google.com` directly.
-
-## Output safety language
-
-DorkLens labels results as signals, for example:
-
-- `High-priority exposure signal`
-- `Directory exposure signal`
-- `Administrative surface signal`
-- `Development surface signal`
-- `Parameter surface signal`
-- `Public information signal`
-
-Every result includes `Manual verification required.` DorkLens does not output automatic vulnerability verdicts.
-
-## Example dork categories
-
-- `directory-listing`
-- `sensitive-files`
-- `backups-archives`
-- `config-and-secrets`
-- `source-control`
-- `logs-and-debug`
-- `admin-panels`
-- `inurl-parameters`
-- `apis-and-docs`
-- `cloud-storage`
-- `subdomains-and-assets`
-- `public-mentions`
-
-Run `dorklens categories` for the full list.
-
-## Example output
+## Project layout
 
 ```text
-site:example.com intitle:"Index of /admin"
-site:example.com intitle:"Index of /old"
-site:example.com intitle:"Index of /test"
-site:example.com intitle:"Index of /dev"
-site:example.com intitle:"Index of /backup"
+dorklens/
+  cli.py  ui.py  config.py  scope.py  http.py  storage.py  report.py
+  demo.py  doctor.py  selftest.py
+  modules/{dork,passive,dirs,params,payloads}.py
+  data/{dorks,payloads,profiles}.yaml  wordlist.txt  demo/*
 ```
 
-## Scope of behavior
+## Roadmap
 
-DorkLens performs passive search-provider requests only. It does not request the target domain, crawl the target domain, scan ports, submit payloads, or upload data. Reports and result files stay local.
+Deliberately deferred until the demo pipeline is trusted:
 
-Use it only for domains and programs you are permitted to assess. Follow the target's disclosure policy and verify every signal manually before reporting anything.
+- `--auth` cookie/header support
+- Nuclei template import
+- POST and JSON body support
+- multi-domain batch runs
+
+## Credits
+
+Built by z7-codes.

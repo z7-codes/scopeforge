@@ -1,202 +1,91 @@
 from __future__ import annotations
 
+import html
 import json
 from pathlib import Path
 
-from .errors import UsageError
-from .search import SearchHit, SearchResult
-
-SENSITIVE_MARKERS = (
-    ".env",
-    ".git/",
-    "id_rsa",
-    "private_key",
-    "credentials",
-    "secrets",
-    "wp-config",
-    "api_key",
-    "secret_key",
-    "access_key",
-    "database_password",
-    "backup",
-    ".sql",
-    ".zip",
-    ".tar",
-    ".bak",
-)
-DIRECTORY_MARKERS = ("index of", "parent directory", "directory listing")
-ADMIN_MARKERS = ("admin", "login", "signin", "phpmyadmin", "adminer", "jenkins", "grafana", "kibana", "console")
-PARAMETER_MARKERS = ("inurl:?", "id=", "file=", "path=", "url=", "redirect=", "download=", "include=", "template=")
-DEVELOPMENT_MARKERS = ("staging", "dev", "test", "sandbox", "preview", "internal")
-
-PRIORITY_ORDER = {
-    "High-priority exposure signal": 0,
-    "Directory exposure signal": 1,
-    "Administrative surface signal": 2,
-    "Development surface signal": 3,
-    "Parameter surface signal": 4,
-    "Public information signal": 5,
+SEV = {
+    2: ("low", "#2c2a12"),
+    3: ("medium", "#3a2c0c"),
+    4: ("high", "#3d1a10"),
+    5: ("critical", "#4a0f0f"),
 }
 
 
-def classify(hit: SearchHit) -> tuple[str, str]:
-    haystack = " ".join((hit.url, hit.query, hit.category)).lower()
-    if any(marker in haystack for marker in SENSITIVE_MARKERS):
-        return (
-            "High-priority exposure signal",
-            "Publicly indexed sensitive material. Confirm ownership, check context, and follow the disclosure process.",
-        )
-    if any(marker in haystack for marker in DIRECTORY_MARKERS):
-        return (
-            "Directory exposure signal",
-            "A directory index may be public. Confirm whether contents are sensitive and restrict access if needed.",
-        )
-    if any(marker in haystack for marker in ADMIN_MARKERS):
-        return (
-            "Administrative surface signal",
-            "An administrative surface is indexed. Confirm authentication, exposure, and intended access policy.",
-        )
-    if any(marker in haystack for marker in DEVELOPMENT_MARKERS):
-        return (
-            "Development surface signal",
-            "A non-production surface is indexed. Confirm it is intended to be public and protected.",
-        )
-    if any(marker in haystack for marker in PARAMETER_MARKERS):
-        return (
-            "Parameter surface signal",
-            "A parameterized URL is indexed. Review parameters manually with permission and record observations.",
-        )
-    return (
-        "Public information signal",
-        "Publicly indexed information. Review context and decide whether any follow-up is warranted.",
-    )
-
-
-def _cell(value: object) -> str:
-    return str(value or "").replace("|", "\\|").replace("\n", " ")
-
-
-def render_markdown(result: SearchResult) -> str:
-    ranked = sorted(
-        result.hits,
-        key=lambda item: (PRIORITY_ORDER.get(classify(item)[0], 9), item.url),
-    )
-    counts: dict[str, int] = {}
-    for hit in result.hits:
-        label = classify(hit)[0]
-        counts[label] = counts.get(label, 0) + 1
-
-    lines = [
-        "# DorkLens Public Exposure Report",
-        "",
-        f"- Domain: {result.domain}",
-        f"- Category: {result.category}",
-        f"- Provider: {result.provider}",
-        f"- Queries generated: {len(result.queries)}",
-        f"- Results collected: {len(result.hits)}",
-        "",
-        "## Reading this report",
-        "",
-        "Results are public search signals, not automatic verdicts. Confirm ownership, check the live context, "
-        "and follow the official disclosure process before taking action.",
-        "",
-        "## Signal summary",
-        "",
-        "| Signal | Count |",
-        "|---|---:|",
+def write(store, out: Path) -> Path:
+    out.mkdir(parents=True, exist_ok=True)
+    rows = store.findings()
+    data = [
+        {
+            "url": row[1],
+            "param": row[2],
+            "category": row[3],
+            "payload": row[4],
+            "confidence": row[5],
+            "signals": json.loads(str(row[6])),
+            "evidence": row[7],
+            "advice": row[8],
+            "ts": row[9],
+        }
+        for row in rows
     ]
-    for label in sorted(counts, key=lambda item: PRIORITY_ORDER.get(item, 9)):
-        lines.append(f"| {label} | {counts[label]} |")
-    if not counts:
-        lines.append("| No signals | 0 |")
+    (out / "findings.json").write_text(json.dumps(data, indent=2), encoding="utf-8")
 
-    lines.extend(
-        [
+    markdown = ["# DorkLens report", "", f"URLs: {store.count('urls')} | Findings: {len(rows)}", ""]
+    for item in data:
+        level = SEV.get(int(item["confidence"]), ("info", ""))[0].upper()
+        markdown += [
+            f"## {level} - {item['category']} on `{item['param']}`",
+            f"- URL: {item['url']}",
+            f"- Payload: `{item['payload']}`",
+            f"- Signals: {', '.join(item['signals'])}",
+            f"- Evidence: {item['evidence']}",
+            f"- Next: {item['advice']}",
             "",
-            "## Collected results",
-            "",
-            "| Priority | URL | Why it matters | Next step | Source dork |",
-            "|---|---|---|---|---|",
         ]
-    )
-    for hit in ranked:
-        label, reason = classify(hit)
-        lines.append(
-            "| "
-            + " | ".join(
-                (
-                    _cell(label),
-                    _cell(hit.url),
-                    _cell(reason),
-                    _cell("Manual verification required."),
-                    _cell(hit.query),
-                )
-            )
-            + " |"
+    (out / "report.md").write_text("\n".join(markdown) + "\n", encoding="utf-8")
+
+    cards: list[str] = []
+    for item in data:
+        level, background = SEV.get(int(item["confidence"]), ("info", "#1a1f26"))
+        cards.append(
+            f'<div class="card" style="background:{background}">'
+            f'<div class="top"><span class="sev">{level}</span>'
+            f'<span class="conf">{item["confidence"]}/5</span>'
+            f"<b>{html.escape(str(item['category']))}</b> on "
+            f"<code>{html.escape(str(item['param']))}</code></div>"
+            f'<div class="row"><a href="{html.escape(str(item["url"]))}" target="_blank">'
+            f"{html.escape(str(item['url']))}</a></div>"
+            f'<div class="row">payload <code>{html.escape(str(item["payload"]))}</code></div>'
+            f'<div class="row dim">{html.escape(str(item["evidence"]))}</div>'
+            f'<div class="row next"><b>next:</b> {html.escape(str(item["advice"]))}</div></div>'
         )
-    if not ranked:
-        lines.append("| No results | - | - | - | - |")
 
-    if result.warnings:
-        lines.extend(["", "## Provider warnings", ""])
-        for warning in result.warnings:
-            lines.append(f"- {warning}")
-
-    lines.extend(
-        [
-            "",
-            "## Verification checklist",
-            "",
-            "- [ ] Confirm the result belongs to the intended target.",
-            "- [ ] Open the public result and record what is actually visible.",
-            "- [ ] Check ownership and intended exposure policy.",
-            "- [ ] Keep evidence local and redacted.",
-            "- [ ] Submit through the official channel only.",
-            "",
-        ]
+    counts: dict[str, int] = {}
+    for item in data:
+        category = str(item["category"])
+        counts[category] = counts.get(category, 0) + 1
+    pills = "".join(
+        f"<span class=p>{html.escape(name)} {number}</span>" for name, number in sorted(counts.items())
     )
-    return "\n".join(lines)
-
-
-def render_text(result: SearchResult) -> str:
-    lines = ["DorkLens Results", f"Domain: {result.domain}", f"Results: {len(result.hits)}", ""]
-    for hit in sorted(result.hits, key=lambda item: item.url):
-        label, _reason = classify(hit)
-        lines.append(f"[{label}] {hit.url}")
-        lines.append(f"  dork: {hit.query}")
-    if not result.hits:
-        lines.append("No public results found.")
-    return "\n".join(lines)
-
-
-def render_json(result: SearchResult) -> str:
-    return json.dumps(result.to_dict(), indent=2, sort_keys=True) + "\n"
-
-
-def load_results(path: str) -> SearchResult:
-    raw = Path(path).read_text(encoding="utf-8")
-    try:
-        value = json.loads(raw)
-    except json.JSONDecodeError as exc:
-        raise UsageError("invalid results JSON: " + str(exc)) from exc
-    if not isinstance(value, dict):
-        raise UsageError("results JSON must be an object")
-    hits: list[SearchHit] = []
-    for item in value.get("hits", []):
-        if isinstance(item, dict):
-            hits.append(
-                SearchHit(
-                    url=str(item.get("url", "")),
-                    query=str(item.get("query", "")),
-                    category=str(item.get("category", "")),
-                    provider=str(item.get("provider", "")),
-                )
-            )
-    return SearchResult(
-        domain=str(value.get("domain", "")),
-        category=str(value.get("category", "all")),
-        provider=str(value.get("provider", "auto")),
-        queries=[str(item) for item in value.get("queries", []) if isinstance(item, str)],
-        hits=hits,
-        warnings=[str(item) for item in value.get("warnings", []) if isinstance(item, str)],
-    )
+    empty = '<span class=dim>koi finding nahi</span>'
+    document = f"""<!doctype html><meta charset="utf-8"><title>DorkLens report</title>
+<style>
+body{{font:14px/1.6 ui-monospace,monospace;background:#0b0d10;color:#c9d1d9;margin:0;padding:2rem;max-width:1000px}}
+h1{{font-size:1.4rem;margin:0 0 .3rem}} .meta{{color:#8b949e;margin-bottom:1.2rem}}
+.p{{display:inline-block;border:1px solid #30363d;border-radius:99px;
+padding:2px 10px;margin:0 6px 8px 0;font-size:12px}}
+.card{{border:1px solid #21262d;border-radius:8px;padding:.8rem 1rem;margin-bottom:.7rem}}
+.top{{display:flex;gap:.7rem;align-items:baseline;flex-wrap:wrap}}
+.sev{{text-transform:uppercase;font-size:11px;letter-spacing:.08em;
+color:#0b0d10;background:#c9d1d9;padding:1px 7px;border-radius:4px}}
+.conf{{font-size:11px;color:#8b949e}} code{{color:#e3b341}} a{{color:#58a6ff;text-decoration:none;word-break:break-all}}
+.row{{margin-top:.35rem;word-break:break-all}} .dim{{color:#8b949e;font-size:12px}}
+.next{{font-size:12px;color:#7ee787}}
+</style>
+<h1>DorkLens</h1>
+<div class="meta">{store.count('urls')} URLs &middot; {len(rows)} findings</div>
+<div>{pills or empty}</div><br>{''.join(cards)}"""
+    path = out / "report.html"
+    path.write_text(document, encoding="utf-8")
+    return path

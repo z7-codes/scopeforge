@@ -1,34 +1,24 @@
-import unittest
+import yaml
 
-from scopeforge.dorks import CATEGORIES, build_plan, render_plan
-from scopeforge.models import Scope
-
-
-class DorkTests(unittest.TestCase):
-    def test_all_queries_are_scoped(self):
-        scope = Scope("main", ["*.example.com"])
-        for category in CATEGORIES:
-            records = build_plan(scope, category, limit=100)
-            self.assertTrue(records)
-            for item in records:
-                self.assertTrue(item["query"].startswith("site:example.com "))
-                self.assertIn("no payloads", item["safety"])
-
-    def test_limit(self):
-        scope = Scope("main", ["example.com", "example.org"])
-        records = build_plan(scope, "recon", limit=3)
-        self.assertEqual(len(records), 3)
-
-    def test_render_formats(self):
-        records = build_plan(Scope("main", ["example.com"]), "xss", limit=2)
-        self.assertIn("ScopeForge plan", render_plan(records))
-        self.assertIn('"query"', render_plan(records, "json"))
-        self.assertIn("| ID | Category | Query |", render_plan(records, "md"))
-
-    def test_unknown_category(self):
-        with self.assertRaises(ValueError):
-            build_plan(Scope("main", ["example.com"]), "nope")
+from dorklens.config import DATA, Config
+from dorklens.modules.dork import plans
 
 
-if __name__ == "__main__":
-    unittest.main()
+def test_catalog_size() -> None:
+    rows = yaml.safe_load((DATA / "dorks.yaml").read_text(encoding="utf-8")) or []
+    assert len(rows) == 33
+    assert sum(len(row["q"]) for row in rows) == 380
+    assert all("{{d}}" in query for row in rows for query in row["q"])
+
+
+def test_plans_are_priority_ranked_and_limited() -> None:
+    cfg = Config.from_domain("example.com").apply_profile("full")
+    items = plans(cfg)
+    assert len(items) == 40
+    assert items[0][0] == "high"
+    assert all("example.com" in query for _, _, query in items)
+
+
+def test_deep_profile_wider_dork_limit() -> None:
+    cfg = Config.from_domain("example.com").apply_profile("deep")
+    assert len(plans(cfg)) == 80
