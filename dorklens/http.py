@@ -86,8 +86,9 @@ class Client:
                     if "ssl" in str(exc).lower() and host not in self.loose_hosts:
                         self.loose_hosts.add(host)
                         try:
+                            fallback_started = time.monotonic()
                             response = await self.loose.get(url, **kwargs)
-                            return Response(response, time.monotonic() - started)
+                            return Response(response, time.monotonic() - fallback_started)
                         except Exception:
                             continue
                     if attempt < self.cfg.retries:

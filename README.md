@@ -37,6 +37,18 @@ dorklens demo --out dorklens-demo --port 8765
 
 The demo starts a local fixture server, runs the real pipeline, and writes `dorklens-demo/report.html`. You should see `sqli_error`, `sqli_bool`, `open_redirect`, `lfi`, and directory hits. No internet is used.
 
+## Lab truth check
+
+The real benchmark is an intentionally vulnerable lab, not a random site with zero findings.
+
+```bash
+docker run -d -p 3000:3000 bkimminich/juice-shop
+python -m dorklens 127.0.0.1:3000 -p lab -s 127.0.0.1 -y -o dorklens-lab
+python scripts/lab_assert.py dorklens-lab
+```
+
+CI runs the same Juice Shop scan on every commit and uploads `dorklens-lab-ci/report.html`. The `lab` profile skips internet dorks and uses a small endpoint list for fast, authorized local testing.
+
 ## One command
 
 ```bash
@@ -68,6 +80,7 @@ dorklens -c dorklens.yaml -y --open
 | `dorklens target.com -p quick` | passive + dork only |
 | `dorklens target.com -p full` | passive + dork + dirs + payload |
 | `dorklens target.com -p deep` | full + timing checks |
+| `dorklens 127.0.0.1:3000 -p lab -s 127.0.0.1` | local vulnerable-lab benchmark |
 | `dorklens -c dorklens.yaml` | run from config |
 | `dorklens demo` | offline end-to-end proof |
 | `dorklens doctor` | dependency and network check |

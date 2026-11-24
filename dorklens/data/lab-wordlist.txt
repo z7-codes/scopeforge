@@ -1,0 +1,5 @@
+/rest/products/search?q=1
+/rest/products/search?q=test
+/redirect?to=/x
+/robots.txt
+/sitemap.xml

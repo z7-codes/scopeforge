@@ -37,17 +37,21 @@ class Config:
     dorks: Path = DATA / "dorks.yaml"
     payloads: Path = DATA / "payloads.yaml"
 
+    def _resolve_paths(self, base: Path) -> Config:
+        for key in ("wordlist", "dorks", "payloads"):
+            value = getattr(self, key)
+            if isinstance(value, str):
+                path = Path(value)
+                setattr(self, key, path if path.is_absolute() else base / path)
+        return self
+
     def apply_profile(self, name: str) -> Config:
         raw = yaml.safe_load((DATA / "profiles.yaml").read_text(encoding="utf-8")) or {}
         if name not in raw:
             raise ValueError(f"unknown profile: {name}")
         for key, value in raw[name].items():
             setattr(self, key, value)
-        for key in ("wordlist", "dorks", "payloads"):
-            value = getattr(self, key)
-            if isinstance(value, str):
-                setattr(self, key, Path(value))
-        return self
+        return self._resolve_paths(DATA)
 
     @classmethod
     def from_file(cls, path: str) -> Config:
@@ -66,7 +70,7 @@ class Config:
             values["out_dir"] = Path(values["out_dir"])
         if not values.get("proxy") and os.environ.get("DORKLENS_PROXY"):
             values["proxy"] = os.environ["DORKLENS_PROXY"]
-        config = cls(domain=domain, scope=scope, **values)
+        config = cls(domain=domain, scope=scope, **values)._resolve_paths(Path.cwd())
         profile = raw.get("profile")
         if profile:
             config.apply_profile(str(profile))

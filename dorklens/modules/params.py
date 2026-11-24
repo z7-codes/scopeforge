@@ -6,7 +6,7 @@ INTERESTING = {
     "id", "pid", "cat", "item", "page", "file", "path", "url", "redirect",
     "next", "return", "target", "download", "doc", "include", "template",
     "view", "src", "callback", "q", "s", "search", "keyword", "name",
-    "lang", "user", "username", "email", "host", "ip", "cmd", "feed", "dest",
+    "lang", "user", "username", "email", "host", "ip", "cmd", "feed", "dest", "to",
 }
 
 

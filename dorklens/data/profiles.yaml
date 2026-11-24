@@ -22,3 +22,11 @@ deep:
   min_confidence: 2
   max_payload_urls: 60
   deep: true
+lab:
+  stages: [dirs, payload]
+  wordlist: lab-wordlist.txt
+  rps_per_host: 20.0
+  concurrency: 8
+  min_confidence: 1
+  max_payload_urls: 50
+  deep: false
