@@ -2,6 +2,8 @@
 domain: "{{d}}"
 profile: full
 max_dork_queries: 40
+post: false
+post_paths: []
 scope:
   allow: ["{{d}}", "*.{{d}}"]
   deny: []

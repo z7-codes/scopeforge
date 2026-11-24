@@ -7,12 +7,13 @@ INTERESTING = {
     "next", "return", "target", "download", "doc", "include", "template",
     "view", "src", "callback", "q", "s", "search", "keyword", "name",
     "lang", "user", "username", "email", "host", "ip", "cmd", "feed", "dest", "to",
+    "ref", "returnUrl", "callback_url",
 }
 
 
 def collect(cfg, store) -> list[tuple[str, list[str]]]:
     found: list[tuple[str, list[str]]] = []
-    for _, url in store.urls():
+    for _, url in reversed(store.urls()):
         parts = urllib.parse.urlsplit(url)
         if not parts.query or not cfg.scope.in_scope(parts.hostname):
             continue

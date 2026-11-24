@@ -19,9 +19,10 @@ def randpath() -> str:
 async def soft404(client, base: str) -> list[tuple[int, int]]:
     signature: list[tuple[int, int]] = []
     for _ in range(2):
-        response = await client.get(urllib.parse.urljoin(base, f"zz{randpath()}.html"))
-        if response:
-            signature.append((response.status, response.length))
+        for probe in (f"zz{randpath()}.html", f"zz{randpath()}/"):
+            response = await client.get(urllib.parse.urljoin(base, probe))
+            if response:
+                signature.append((response.status, response.length))
     return signature
 
 

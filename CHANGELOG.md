@@ -2,6 +2,15 @@
 
 All notable changes to this project are documented here.
 
+## Unreleased
+
+- Added a scoped BFS crawler with depth 2 and a 200-page cap.
+- Added opt-in POST/JSON body injection with a single `{{INJECT}}` placeholder and `--post`.
+- Replaced count-based lab checks with an expected-vs-actual precision matrix and noise cap.
+- Added high-value target scoring, dual soft-404 calibration, and encoded reflection checks.
+- Added report deduplication, variant counts, and a separate unconfirmed timing section.
+- Wrote reports before closing clients so interrupted runs keep proof.
+
 ## 1.0.0 — 2026-11-23
 
 - Replaced the older ScopeForge CLI with the UX-first DorkLens workflow.

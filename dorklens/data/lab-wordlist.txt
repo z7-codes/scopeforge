@@ -1,5 +1,5 @@
-/rest/products/search?q=1
-/rest/products/search?q=test
-/redirect?to=/x
-/robots.txt
-/sitemap.xml
+/rest/products/search?q=apple
+/redirect?to=https://owasp.org
+/rest/user/login
+/api/Products
+/rest/captcha

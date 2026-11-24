@@ -27,6 +27,8 @@ class Config:
     insecure: bool = False
     deep: bool = False
     dry_run: bool = False
+    post: bool = False
+    post_paths: list[str] = field(default_factory=list)
     proxy: str | None = None
     user_agent: str = "dorklens/1.0 (+authorized testing)"
     min_confidence: int = 2

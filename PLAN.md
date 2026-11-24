@@ -13,7 +13,7 @@ Catalog: 380 advanced dorks across 33 categories, with priority-ranked defaults 
 ## Data flow
 
 ```text
-passive -> dork -> dirs -> params -> payload -> report
+passive -> dork -> crawl -> dirs -> params -> payload -> report
 ```
 
 Each stage writes to SQLite. The next stage reads the same store. Results are deduplicated by URL and finding tuple, so resume is free and a stage crash does not destroy the run.
@@ -37,7 +37,7 @@ Confidence equals the number of matched signals. On unstable pages, the threshol
 
 - Written scope checked on every target URL.
 - Per-host token bucket.
-- GET-only.
+- GET by default; POST/JSON only with `--post` or `lab`.
 - Redirects are not followed.
 - `Ctrl-C` leaves SQLite state safe.
 
@@ -56,9 +56,10 @@ Confidence equals the number of matched signals. On unstable pages, the threshol
 dorklens/
   cli.py  ui.py  config.py  scope.py  http.py  storage.py  report.py
   demo.py  doctor.py  selftest.py
-  modules/{passive,dork,dirs,params,payloads}.py
-  data/{dorks,payloads,profiles}.yaml  wordlist.txt  demo/*
-tests/test_core.py
+  modules/{passive,dork,crawl,dirs,params,payloads}.py
+  data/{dorks,payloads,profiles}.yaml  wordlist.txt  lab-wordlist.txt  demo/*
+scripts/lab_assert.py
+tests/{test_core,test_demo,test_dorks,test_crawl,test_lab}.py
 ```
 
 ## Deferred
@@ -67,5 +68,4 @@ Added only after the demo pipeline is trusted:
 
 - `--auth` cookie/header
 - Nuclei template import
-- POST/JSON body support
 - multi-domain batch

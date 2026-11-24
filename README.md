@@ -4,7 +4,7 @@
 
 > point it, and it sees
 
-DorkLens is a focused, one-command recon workflow. It finds public signals, builds dorks, walks likely directories, collects parameterized URLs, tests them with a conservative GET-only signal engine, and writes a report you can actually read.
+DorkLens is a focused, one-command recon workflow. It finds public signals, builds dorks, crawls and walks likely paths, collects parameterized URLs, tests them with a conservative signal engine, and writes a report you can actually read.
 
 The catalog contains 380 advanced dorks across 33 categories. Defaults stay fast: quick/full/deep run 20/40/80 high-priority queries first; the full catalog is always available in `dorklens/data/dorks.yaml`.
 
@@ -47,7 +47,7 @@ python -m dorklens 127.0.0.1:3000 -p lab -s 127.0.0.1 -y -o dorklens-lab
 python scripts/lab_assert.py dorklens-lab
 ```
 
-CI runs the same Juice Shop scan on every commit and uploads `dorklens-lab-ci/report.html`. The `lab` profile skips internet dorks and uses a small endpoint list for fast, authorized local testing.
+The gate is an expected-vs-actual matrix, not a count: `q` must fire SQLi on `/rest/products/search`, `to` must fire open redirect on `/redirect`, clean endpoints must stay silent, and total findings stay under 40. CI runs the same scan on every commit and uploads `dorklens-lab-ci/report.html`. The `lab` profile skips internet dorks and uses a small endpoint list for fast, authorized local testing.
 
 ## One command
 
@@ -77,9 +77,10 @@ dorklens -c dorklens.yaml -y --open
 | Command | What it does |
 |---|---|
 | `dorklens` | wizard: domain, profile, confirmation |
-| `dorklens target.com -p quick` | passive + dork only |
-| `dorklens target.com -p full` | passive + dork + dirs + payload |
+| `dorklens target.com -p quick` | passive + dork + crawl |
+| `dorklens target.com -p full` | passive + dork + crawl + dirs + payload |
 | `dorklens target.com -p deep` | full + timing checks |
+| `dorklens target.com -p full --post` | include POST/JSON injection specs |
 | `dorklens 127.0.0.1:3000 -p lab -s 127.0.0.1` | local vulnerable-lab benchmark |
 | `dorklens -c dorklens.yaml` | run from config |
 | `dorklens demo` | offline end-to-end proof |
@@ -91,8 +92,9 @@ dorklens -c dorklens.yaml -y --open
 ## Safety model
 
 - Written scope is required. Every target request is checked against it.
-- GET-only. Redirects are not followed, so detection stays intact.
+- GET by default; POST/JSON runs only with `--post` or the `lab` profile. Redirects are never followed, so detection stays intact.
 - Per-host token bucket plus global concurrency limit.
+- Crawler is BFS, depth 2, 200-page cap, same scope, and only follows `a[href]`.
 - Two baselines before a probe. Unstable pages raise the confidence threshold by one.
 - Soft-404 calibration is done per host before directory checks.
 - Signals are not verdicts. Reports include a concrete next step and manual verification language.
@@ -102,7 +104,7 @@ Only test systems you own or have explicit written permission to test.
 
 ## Pipeline
 
-`passive -> dork -> dirs -> params -> payload -> report`
+`passive -> dork -> crawl -> dirs -> params -> payload -> report`
 
 Every stage writes into `dorklens-out/state.db`. The next stage reads from the same SQLite store. A stage crash does not erase earlier work, and re-running the same command skips already-known URLs and findings.
 
@@ -113,7 +115,8 @@ Confidence grows with the number of independent signals:
 - regex evidence
 - length delta
 - status change
-- payload reflection
+- payload reflection, raw or URL-encoded
+- POST/JSON body injection when enabled
 - similarity drop
 - location match
 
@@ -127,6 +130,8 @@ See `dorklens.yaml.example`. CLI flags always override config values.
 domain: "{{d}}"
 profile: full
 max_dork_queries: 40
+post: false
+post_paths: []
 scope:
   allow: ["{{d}}", "*.{{d}}"]
   deny: []

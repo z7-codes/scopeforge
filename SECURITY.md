@@ -15,12 +15,12 @@ Public, non-sensitive issues: normal GitHub issue. Expect a first reply within 7
 
 ## Authorized use
 
-DorkLens sends HTTP GET requests to in-scope hosts and probes URL parameters with known test payloads. Use it only on systems you own or have explicit written permission to test.
+DorkLens sends in-scope HTTP requests and probes URL parameters or JSON body fields with known test payloads. Use it only on systems you own or have explicit written permission to test.
 
 ## Built-in limits
 
 - Written scope is required and checked before every target request.
-- GET-only. Redirects are not followed.
+- GET by default; POST/JSON only with `--post` or `lab`. Redirects are not followed.
 - Per-host token bucket and global concurrency limit.
 - Findings are signals, not automatic vulnerability declarations.
 - Reports include manual verification steps and next-step advice.
@@ -28,6 +28,6 @@ DorkLens sends HTTP GET requests to in-scope hosts and probes URL parameters wit
 ## Known limits
 
 - No authentication flows yet.
-- No POST or JSON body testing yet.
+- POST/JSON injection is opt-in and expects an explicit `{{INJECT}}` body template.
 - No multi-domain batch yet.
 - Timing checks are opt-in through the `deep` profile.

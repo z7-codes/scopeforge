@@ -71,35 +71,45 @@ class Client:
     def _client(self, host: str) -> httpx.AsyncClient:
         return self.loose if self.cfg.insecure or host in self.loose_hosts else self.secure
 
-    async def get(self, url: str, *, scope_check: bool = True, **kwargs: Any) -> Response | None:
+    async def request(self, method: str, url: str, *, scope_check: bool = True, **kwargs: Any) -> Response | None:
         host = self._host(url)
         if not host or (scope_check and not self.cfg.scope.in_scope(host)):
             return None
+        attempt = 0
         async with self.sem:
             await self._bucket(host).take()
-            for attempt in range(self.cfg.retries + 1):
+            while attempt <= self.cfg.retries:
                 started = time.monotonic()
                 try:
-                    response = await self._client(host).get(url, **kwargs)
+                    response = await self._client(host).request(method.upper(), url, **kwargs)
                     return Response(response, time.monotonic() - started)
                 except httpx.ConnectError as exc:
                     if "ssl" in str(exc).lower() and host not in self.loose_hosts:
                         self.loose_hosts.add(host)
                         try:
                             fallback_started = time.monotonic()
-                            response = await self.loose.get(url, **kwargs)
+                            response = await self.loose.request(method.upper(), url, **kwargs)
                             return Response(response, time.monotonic() - fallback_started)
                         except Exception:
+                            attempt = 0
                             continue
                     if attempt < self.cfg.retries:
                         await asyncio.sleep(1.4 ** (attempt + 1))
+                    attempt += 1
                 except httpx.TransportError:
                     if attempt < self.cfg.retries:
                         await asyncio.sleep(1.4 ** (attempt + 1))
+                    attempt += 1
                 except Exception:
                     return None
         return None
 
+    async def get(self, url: str, *, scope_check: bool = True, **kwargs: Any) -> Response | None:
+        return await self.request("GET", url, scope_check=scope_check, **kwargs)
+
     async def close(self) -> None:
-        await self.secure.aclose()
-        await self.loose.aclose()
+        for client in (self.secure, self.loose):
+            try:
+                await client.aclose()
+            except Exception:
+                pass

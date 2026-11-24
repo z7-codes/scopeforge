@@ -15,7 +15,7 @@ python -m pytest -q
 ## Rules
 
 - Scope is required. Never bypass it.
-- Keep requests GET-only unless a new mode is explicitly designed and documented.
+- Keep requests GET by default; POST/JSON modes must be explicit, scoped, and documented.
 - Do not add credential attacks, exploit chains, or data extraction.
 - Every finding must carry evidence and a manual next step.
 - Every behavior change needs a test.

@@ -4,13 +4,14 @@ import argparse
 import asyncio
 import sys
 import time
+import urllib.parse
 import webbrowser
 from pathlib import Path
 
 from . import __version__, demo, doctor, selftest, ui
 from .config import TAGLINE, Config
 from .http import Client
-from .modules import dirs, dork, params, passive, payloads
+from .modules import crawl, dirs, dork, params, passive, payloads
 from .report import write
 from .scope import Scope
 from .storage import Store
@@ -33,7 +34,7 @@ def build_cfg(args: argparse.Namespace) -> Config:
     profile = getattr(args, "profile", None)
     if profile:
         cfg.apply_profile(profile)
-    for name in ("insecure", "min_confidence", "concurrency", "proxy", "out"):
+    for name in ("insecure", "min_confidence", "concurrency", "proxy", "out", "post"):
         value = getattr(args, name, None)
         if value is not None:
             setattr(cfg, "out_dir" if name == "out" else name, value)
@@ -73,24 +74,41 @@ async def pipeline(cfg: Config) -> int:
             ui.info(f"+{total}")
 
         bases = [f"{scheme}://{cfg.domain}/" for scheme in cfg.schemes]
+        if "crawl" in cfg.stages:
+            total = await run_stage("crawl", crawl.run, cfg, client, store)
+            ui.info(f"+{total}")
+
         if "dirs" in cfg.stages:
             total = await run_stage("dirs", dirs.run, cfg, client, store, bases)
             ui.info(f"+{total}")
 
         targets = params.collect(cfg, store)
+        post_targets = [
+            url
+            for _, url in store.urls()
+            if cfg.scope.in_scope(urllib.parse.urlsplit(url).hostname)
+        ]
+        for post_path in cfg.post_paths:
+            for scheme in cfg.schemes:
+                url = f"{scheme}://{cfg.domain}{post_path}"
+                if cfg.scope.in_scope(urllib.parse.urlsplit(url).hostname) and url not in post_targets:
+                    post_targets.append(url)
         ui.info(f"{len(targets)} parametrized URLs mile")
 
-        if "payload" in cfg.stages and targets:
-            total = await run_stage("payload", payloads.run, cfg, client, store, targets)
+        if "payload" in cfg.stages and (targets or cfg.post):
+            total = await run_stage("payload", payloads.run, cfg, client, store, targets, post_targets)
             ui.info(f"{total} findings")
 
         if "blind" in cfg.stages and targets and cfg.deep:
             total = await run_stage("blind", payloads.blind, cfg, client, store, targets)
             ui.info(f"{total} timing findings")
     finally:
-        await client.close()
         path = write(store, cfg.out_dir)
         ui.summary(store.count("urls"), store.count("findings"), time.monotonic() - started, path)
+        try:
+            await client.close()
+        except Exception:
+            pass
         store.close()
     return 0
 
@@ -197,6 +215,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--proxy")
     parser.add_argument("-o", "--out", type=Path)
     parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument("--post", action="store_true", help="POST/JSON injection specs bhi chalayein")
     parser.add_argument("--open", action="store_true", help="report browser mein kholo")
     parser.add_argument("-y", "--yes", action="store_true", help="bina puche chalao")
     parser.add_argument("-V", "--version", action="version", version=f"dorklens {__version__}")
