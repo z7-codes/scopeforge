@@ -35,7 +35,7 @@ dorklens demo
 dorklens demo --out dorklens-demo --port 8765
 ```
 
-The demo starts a local fixture server, runs the real pipeline, and writes `dorklens-demo/report.html`. You should see `sqli_error`, `sqli_bool`, `open_redirect`, `lfi`, and directory hits. No internet is used.
+The demo starts a local fixture server, runs the real pipeline, and prints the findings in the terminal. You should see `sqli_error`, `sqli_bool`, `open_redirect`, `lfi`, and directory hits. No internet is used.
 
 ## Lab truth check
 
@@ -47,15 +47,14 @@ python -m dorklens 127.0.0.1:3000 -p lab -s 127.0.0.1 -y -o dorklens-lab
 python scripts/lab_assert.py dorklens-lab
 ```
 
-The gate is an expected-vs-actual matrix, not a count: `q` must fire SQLi on `/rest/products/search`, `to` must fire open redirect on `/redirect`, clean endpoints must stay silent, and total findings stay under 40. CI runs the same scan on every commit and uploads `dorklens-lab-ci/report.html`. The `lab` profile skips internet dorks and uses a small endpoint list for fast, authorized local testing.
+The gate is an expected-vs-actual matrix, not a count: `q` must fire SQLi on `/rest/products/search`, `to` must fire open redirect on `/redirect`, clean endpoints must stay silent, and total findings stay under 40. CI runs the same scan on every commit and uploads `dorklens-lab-ci/findings.json`. The `lab` profile skips internet dorks and uses a small endpoint list for fast, authorized local testing.
 
 ## One command
 
 ```bash
-dorklens target.com -p quick -y --open
+dorklens target.com -p quick -y
 ```
-
-That means: quick profile, no wizard prompt, open the HTML report when done.
+That means: quick profile, no wizard prompt, print all findings in the terminal.
 
 Interactive mode:
 
@@ -69,7 +68,7 @@ Config-driven run:
 
 ```bash
 dorklens init target.com
-dorklens -c dorklens.yaml -y --open
+dorklens -c dorklens.yaml -y
 ```
 
 ## Commands
@@ -86,7 +85,7 @@ dorklens -c dorklens.yaml -y --open
 | `dorklens demo` | offline end-to-end proof |
 | `dorklens doctor` | dependency and network check |
 | `dorklens selftest` | 11 core checks |
-| `dorklens report -o dorklens-out` | regenerate reports from SQLite state |
+| `dorklens report -o dorklens-out` | reprint findings from SQLite state |
 | `dorklens --version` | version |
 
 ## Safety model
@@ -140,14 +139,14 @@ out_dir: dorklens-out
 
 ## Reports
 
-Each run writes:
+Each run prints severity, evidence, payload, signals, and next steps directly to the terminal.
 
-- `report.html` - readable card view with severity, evidence, and next step
-- `report.md` - terminal-friendly Markdown
-- `findings.json` - structured results
+It also writes:
+
+- `findings.json` - structured results for lab gates and CI
 - `state.db` - resumable SQLite state
 
-Use `--open` to launch the HTML report automatically.
+No HTML or Markdown report file is generated.
 
 ## Project layout
 

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import random
+import ssl
 import time
 from typing import Any
 
@@ -47,13 +48,12 @@ class Client:
         self.loose_hosts: set[str] = set()
         common: dict[str, Any] = {
             "timeout": cfg.timeout,
-            "follow_redirects": False,
             "headers": {"User-Agent": cfg.user_agent},
             "limits": httpx.Limits(max_connections=cfg.concurrency * 2),
             "proxy": cfg.proxy,
         }
-        self.secure = httpx.AsyncClient(verify=True, **common)
-        self.loose = httpx.AsyncClient(verify=False, **common)
+        self.secure = httpx.AsyncClient(verify=True, follow_redirects=False, **common)
+        self.loose = httpx.AsyncClient(verify=False, follow_redirects=False, **common)
 
     @staticmethod
     def _host(url: str) -> str:
@@ -83,15 +83,15 @@ class Client:
                 try:
                     response = await self._client(host).request(method.upper(), url, **kwargs)
                     return Response(response, time.monotonic() - started)
-                except httpx.ConnectError as exc:
+                except (httpx.ConnectError, ssl.SSLError) as exc:
                     if "ssl" in str(exc).lower() and host not in self.loose_hosts:
+                        attempt = 0
                         self.loose_hosts.add(host)
                         try:
                             fallback_started = time.monotonic()
                             response = await self.loose.request(method.upper(), url, **kwargs)
                             return Response(response, time.monotonic() - fallback_started)
                         except Exception:
-                            attempt = 0
                             continue
                     if attempt < self.cfg.retries:
                         await asyncio.sleep(1.4 ** (attempt + 1))
@@ -107,9 +107,15 @@ class Client:
     async def get(self, url: str, *, scope_check: bool = True, **kwargs: Any) -> Response | None:
         return await self.request("GET", url, scope_check=scope_check, **kwargs)
 
+    async def post(self, url: str, *, scope_check: bool = True, **kwargs: Any) -> Response | None:
+        return await self.request("POST", url, scope_check=scope_check, **kwargs)
+
     async def close(self) -> None:
         for client in (self.secure, self.loose):
             try:
                 await client.aclose()
             except Exception:
                 pass
+
+    async def aclose(self) -> None:
+        await self.close()

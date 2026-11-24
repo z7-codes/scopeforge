@@ -10,6 +10,9 @@ All notable changes to this project are documented here.
 - Added high-value target scoring, dual soft-404 calibration, and encoded reflection checks.
 - Added report deduplication, variant counts, and a separate unconfirmed timing section.
 - Wrote reports before closing clients so interrupted runs keep proof.
+- Seeded the crawler with dork and passive discoveries instead of only the domain root.
+- Switched reporting to terminal-only output and removed HTML/Markdown report files.
+- Translated all user-facing CLI messages and prompts to English.
 
 ## 1.0.0 — 2026-11-23
 

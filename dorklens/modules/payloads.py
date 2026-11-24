@@ -53,7 +53,7 @@ def evaluate(signal: dict, base, probe, payload: str) -> tuple[bool, str]:
         raw = payload in probe.text
         encoded = urllib.parse.quote(payload, safe="") in probe.text
         if encoded:
-            return True, "reflected encoded (XSS unlikely - context dekhein)"
+            return True, "reflected encoded (XSS unlikely - check context)"
         if raw:
             return True, "reflected raw (XSS likely)"
         return False, ""

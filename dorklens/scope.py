@@ -17,7 +17,7 @@ class Scope:
         self._allow = [self._norm(item) for item in self.allow if item and item.strip()]
         self._deny = [self._norm(item) for item in self.deny if item and item.strip()]
         if not self._allow:
-            raise ScopeError("scope khali hai - kam se kam ek domain chahiye")
+            raise ScopeError("scope is empty - at least one domain is required")
 
     @staticmethod
     def _norm(host: str) -> str:

@@ -43,3 +43,24 @@ def test_crawler_finds_scoped_links(tmp_path) -> None:
     assert total > 0
     assert any("id=1" in url for url in urls)
     assert any("url=/x" in url for url in urls)
+
+
+def test_crawler_uses_discovered_urls_as_seeds(tmp_path) -> None:
+    port = free_port()
+    server = demo.serve(port)
+    cfg = Config.from_domain(f"127.0.0.1:{port}", stages=["crawl"], out_dir=tmp_path / "out")
+    cfg.scope = Scope(allow=["127.0.0.1"])
+    cfg.schemes = ["http"]
+    cfg.rps_per_host = 50.0
+    store = Store(cfg.out_dir / "state.db")
+    store.add_url(f"http://127.0.0.1:{port}/backup/", "dork:sensitive-files")
+    try:
+        asyncio.run(scan(port, cfg, store))
+    finally:
+        server.shutdown()
+        server.server_close()
+        store.close()
+    reopened = Store(cfg.out_dir / "state.db")
+    urls = {url for _, url in reopened.urls()}
+    reopened.close()
+    assert any(url.endswith("/backup/db.sql") for url in urls)

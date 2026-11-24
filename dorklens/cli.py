@@ -5,7 +5,6 @@ import asyncio
 import sys
 import time
 import urllib.parse
-import webbrowser
 from pathlib import Path
 
 from . import __version__, demo, doctor, selftest, ui
@@ -93,7 +92,7 @@ async def pipeline(cfg: Config) -> int:
                 url = f"{scheme}://{cfg.domain}{post_path}"
                 if cfg.scope.in_scope(urllib.parse.urlsplit(url).hostname) and url not in post_targets:
                     post_targets.append(url)
-        ui.info(f"{len(targets)} parametrized URLs mile")
+        ui.info(f"{len(targets)} parameterized URLs found")
 
         if "payload" in cfg.stages and (targets or cfg.post):
             total = await run_stage("payload", payloads.run, cfg, client, store, targets, post_targets)
@@ -103,8 +102,8 @@ async def pipeline(cfg: Config) -> int:
             total = await run_stage("blind", payloads.blind, cfg, client, store, targets)
             ui.info(f"{total} timing findings")
     finally:
-        path = write(store, cfg.out_dir)
-        ui.summary(store.count("urls"), store.count("findings"), time.monotonic() - started, path)
+        write(store, cfg.out_dir)
+        ui.summary(store.count("urls"), store.count("findings"), time.monotonic() - started, cfg.out_dir)
         try:
             await client.close()
         except Exception:
@@ -127,7 +126,7 @@ def cmd_demo(args: argparse.Namespace) -> int:
     port = int(args.port)
     server = demo.serve(port)
     ui.head("demo")
-    ui.info(f"local site: http://127.0.0.1:{port}  (asli target nahi, sirf dikhane ke liye)")
+    ui.info(f"local fixture: http://127.0.0.1:{port}  (not a real target)")
     cfg = Config.from_domain(
         f"127.0.0.1:{port}",
         stages=["dirs", "payload"],
@@ -150,7 +149,7 @@ def cmd_report(args: argparse.Namespace) -> int:
     out = Path(args.out)
     store = Store(out / "state.db")
     path = write(store, out)
-    ui.ok(f"report: {path}")
+    ui.ok(f"findings: {path}")
     store.close()
     return 0
 
@@ -159,13 +158,13 @@ def cmd_init(args: argparse.Namespace) -> int:
     template = Path(__file__).parent / "data" / "dorklens.yaml.example"
     destination = Path("dorklens.yaml")
     if destination.exists():
-        ui.warn("dorklens.yaml pehle se hai")
+        ui.warn("dorklens.yaml already exists")
         return 1
     destination.write_text(
         template.read_text(encoding="utf-8").replace("{{d}}", args.domain),
         encoding="utf-8",
     )
-    ui.ok(f"{destination} bana - ab: dorklens -c dorklens.yaml")
+    ui.ok(f"created {destination} - run: dorklens -c dorklens.yaml")
     return 0
 
 
@@ -215,9 +214,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--proxy")
     parser.add_argument("-o", "--out", type=Path)
     parser.add_argument("--dry-run", action="store_true")
-    parser.add_argument("--post", action="store_true", help="POST/JSON injection specs bhi chalayein")
-    parser.add_argument("--open", action="store_true", help="report browser mein kholo")
-    parser.add_argument("-y", "--yes", action="store_true", help="bina puche chalao")
+    parser.add_argument("--post", action="store_true", help="include POST/JSON injection specs")
+    parser.add_argument("-y", "--yes", action="store_true", help="run without confirmation")
     parser.add_argument("-V", "--version", action="version", version=f"dorklens {__version__}")
     args = parser.parse_args(values)
 
@@ -234,13 +232,11 @@ def main(argv: list[str] | None = None) -> int:
     try:
         code = asyncio.run(pipeline(cfg))
     except KeyboardInterrupt:
-        ui.warn("ruk gaya - progress save hai, resume ke liye wahi command dobara chalayein")
+        ui.warn("stopped - progress saved; rerun the same command to resume")
         code = 130
     except ValueError as exc:
         ui.err(str(exc))
         return 2
-    if args.open:
-        webbrowser.open((cfg.out_dir / "report.html").resolve().as_uri())
     return code
 
 

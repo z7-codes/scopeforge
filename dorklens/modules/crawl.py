@@ -17,9 +17,19 @@ def clean(url: str) -> str:
 
 
 async def run(cfg, client, store) -> int:
-    queue: deque[tuple[str, int]] = deque(
-        (f"{scheme}://{cfg.domain}/", 0) for scheme in cfg.schemes
-    )
+    seeds = [f"{scheme}://{cfg.domain}/" for scheme in cfg.schemes]
+    seeds.extend(url for _, url in reversed(store.urls()))
+    queue: deque[tuple[str, int]] = deque()
+    queued: set[str] = set()
+    for seed in seeds:
+        seed = clean(seed)
+        parts = urllib.parse.urlsplit(seed)
+        if parts.scheme not in cfg.schemes or not cfg.scope.in_scope(parts.hostname):
+            continue
+        if seed in queued:
+            continue
+        queued.add(seed)
+        queue.append((seed, 0))
     seen: set[str] = set()
     total = 0
     while queue and len(seen) < MAX_PAGES:
@@ -51,7 +61,12 @@ async def run(cfg, client, store) -> int:
                 continue
             if store.add_url(found, f"crawl:{depth}"):
                 total += 1
-            if depth < MAX_DEPTH and found not in seen and len(seen) + len(queue) < MAX_PAGES:
+            if (
+                depth < MAX_DEPTH
+                and found not in queued
+                and len(seen) + len(queue) < MAX_PAGES
+            ):
+                queued.add(found)
                 queue.append((found, depth + 1))
     if total:
         ui.info(f"crawl: +{total}")

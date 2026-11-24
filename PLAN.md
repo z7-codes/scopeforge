@@ -48,7 +48,7 @@ Confidence equals the number of matched signals. On unstable pages, the threshol
 - `doctor` for environment checks.
 - `demo` for offline end-to-end proof.
 - Per-finding `next step` advice.
-- `--open` for the HTML report.
+- Terminal-only findings with severity, evidence, and next steps.
 
 ## Layout
 

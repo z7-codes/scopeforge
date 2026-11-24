@@ -46,7 +46,7 @@ async def run(cfg, client, store, bases: list[str]) -> int:
             continue
         signature = await soft404(client, base)
         if not signature:
-            ui.warn(f"{base} jawab nahi de raha, skip")
+            ui.warn(f"{base} did not respond, skipping")
             continue
         found = 0
         done = 0

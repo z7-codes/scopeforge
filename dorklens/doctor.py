@@ -23,7 +23,7 @@ def run() -> bool:
             socket.create_connection((host, port), timeout=4).close()
             ui.ok(f"{host}:{port} reachable")
         except OSError:
-            ui.warn(f"{host}:{port} band - proxy ya network dekhein")
+            ui.warn(f"{host}:{port} unreachable - check proxy or network")
     if not healthy:
-        ui.err("pehle missing packages theek karein")
+        ui.err("install the missing packages first")
     return healthy
